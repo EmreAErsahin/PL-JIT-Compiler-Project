@@ -4,5 +4,9 @@
 # Random copilot files
 *.xml
 
-# CMake build folder
+# Ignoring both clion / my own Cmake folder
 /cmake-build-debug
+/build
+
+# Ignoring any temporary test files
+*.tmp.out
