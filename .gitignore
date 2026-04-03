@@ -1,0 +1,8 @@
+# Clion folder
+.idea
+
+# Random copilot files
+*.xml
+
+# CMake build folder
+/cmake-build-debug
