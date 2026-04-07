@@ -1,12 +1,9 @@
-.PHONY: build run clean
+.PHONY: build clean
 
 build:
-	@cmake -B cmake-build-debug > /dev/null 2>&1
-	@cmake --build cmake-build-debug
-
-run: build
-	@./cmake-build-debug/interpreter
+	@cmake -S . -B build
+	@cmake --build build
 
 clean:
-	@rm -rf cmake-build-debug
+	@rm -rf build
 	@echo "Cleaned build directory"

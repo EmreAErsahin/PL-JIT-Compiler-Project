@@ -5,12 +5,17 @@ collector and JIT compiler.
 
 ## Build Details
 
-- The project is built with CMake & a Makefile wrapper to easily use Cmake
+- The project is built with CMake and a top-level Makefile wrapper
 - To run the project
-    - Make run from the root directory of the project
+    - Build the project: `make build`
+    - Run the interpreter directly: `./build/interpreter SOURCE`
+    - Run with AST debug output: `./build/interpreter --debug SOURCE`
+    - Run a single passing test: `./scripts/run_single_test.sh tests/pass/<test_name>.ee`
+    - Run all passing tests: `./scripts/run_passing_tests.sh`
+    - Run all failing tests: `./scripts/run_failing_tests.sh`
+    - Run the full test suite: `./scripts/run_all_tests.sh`
 - Other options
-    - Make clean -> (cleans build folder)
-    - Make build -> (builds the project)
+    - `make clean` -> cleans the `build/` directory
 
 ## PL Grammar (cpp-peglib preferred format)
 
@@ -40,6 +45,7 @@ Integer      <- < '-'? [0-9]+ >
 ## Invariants
 
 - For the program to run there must be a function called main. This is the entry point
+- The interpreter takes exactly one source file path, with optional `--debug` before it
 
 ## Future Features
 
