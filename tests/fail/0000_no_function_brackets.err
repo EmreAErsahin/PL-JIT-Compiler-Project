@@ -1,1 +1,1 @@
-ParseFileContentsIntoAST: parse failed at 1:12: syntax error, expecting '{'.
+ParseFileContentsIntoAST: parse failed at 1:10: syntax error, expecting '{'.

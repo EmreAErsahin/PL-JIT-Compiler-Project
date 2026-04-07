@@ -17,19 +17,23 @@ collector and JIT compiler.
 - Other options
     - `make clean` -> cleans the `build/` directory
 
-## PL Grammar (cpp-peglib preferred format)
+## Current Grammar (cpp-peglib preferred format)
 
 Program      <- Function
 
-Function     <- Type Identifier '(' ')' '{' Body '}'
+Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
 
-Body         <- Instruction*
+Statement    <- Print ';'
 
-Instruction  <- Print ';'
+Print        <- 'print' '(' Expression? ')'
 
-Print        <- 'print' '(' Integer? ')'
+Expression   <- Primary
 
-Type         <- 'void'
+Primary      <- Integer / Bool / Nothing
+
+Bool         <- 'true' / 'false'
+
+Nothing      <- 'nothing'
 
 Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
 
@@ -37,10 +41,30 @@ Integer      <- < '-'? [0-9]+ >
 
 %whitespace  <- [ \t\r\n]*
 
+## Stage 1 Grammar (Not yet implemented pieces preceded with ---)
+
+Program         <- Function
+Function        <- 'fn' Identifier '(' ')' Block
+--- Block           <- '{' Statement* '}'
+--- Statement       <- PrintStmt / LetStmt / IfStmt
+--- PrintStmt       <- 'print' '(' Expression? ')' ';'
+--- LetStmt         <- 'let' Identifier '=' Expression ';'
+--- IfStmt          <- 'if' '(' Expression ')' Block
+--- Expression      <- Additive
+--- Additive        <- Multiplicative (('+' / '-') Multiplicative)*
+--- Multiplicative  <- Unary (('*' / '/') Unary)*
+--- Unary           <- Primary
+--- Primary         <- Integer / Bool / Nothing / Identifier / '(' Expression ')'
+--- Bool            <- 'true' / 'false'
+--- Nothing         <- 'nothing'
+Identifier      <- < [a-zA-Z_][a-zA-Z0-9_]* >
+Integer         <- < '-'? [0-9]+ >
+
 ## Language Semantics
 
 - `print(<integer>)` behavior: Prints the value with no automatic newline
 - `print()` behavior: Prints nothing
+- Functions are declared with `fn`, for example `fn main() { ... }`
 
 ## Invariants
 
