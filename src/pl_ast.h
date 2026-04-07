@@ -8,26 +8,32 @@
 #include <vector>
 
 namespace pl_ast {
-  struct Integer {
+  struct IntegerLiteralExpression {
     int64_t value_;
   };
 
+  struct BoolLiteralExpression {
+    bool value_;
+  };
+
+  struct NothingLiteralExpression {};
+
+  using ExpressionVariant = std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression>;
+
+  // Variables, function names
   struct Identifier {
-    std::string value_;
+    std::string name_;
   };
 
-  enum class Type { VOID };
-
-  struct PrintInstruction {
-    std::optional<Integer> value_;
+  struct PrintStatement {
+    std::optional<ExpressionVariant> expression_;
   };
 
-  using InstructionVariant = std::variant<PrintInstruction>;
+  using StatementVariant = std::variant<PrintStatement>;
 
   struct Function {
-    Type return_type_;
-    Identifier name_;
-    std::vector<InstructionVariant> instructions_;
+    Identifier identifier_;
+    std::vector<StatementVariant> statements_;
   };
 
   // TODO: Change to a vector of functions once we allow multiple

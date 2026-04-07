@@ -11,14 +11,15 @@ namespace parse_into_ast {
   peg::parser MakeParser() {
     peg::parser parser;
 
-    // First rule is start rule for library
     constexpr auto pl_grammar = R"(
       Program      <- Function
-      Function     <- Type Identifier '(' ')' '{' Body '}'
-      Body         <- Instruction*
-      Instruction  <- Print ';'
-      Print        <- 'print' '(' Integer? ')'
-      Type         <- 'void'
+      Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
+      Statement    <- Print ';'
+      Print        <- 'print' '(' Expression? ')'
+      Expression   <- Primary
+      Primary      <- Integer / Bool / Nothing
+      Bool         <- 'true' / 'false'
+      Nothing      <- 'nothing'
       Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Integer      <- < '-'? [0-9]+ >
       %whitespace  <- [ \t\r\n]*
@@ -28,43 +29,50 @@ namespace parse_into_ast {
       throw std::runtime_error("MakeParser: failed to load parser grammar");
     }
 
-    parser["Type"] = [](const peg::SemanticValues&) { return pl_ast::Type::VOID; };
-
     parser["Identifier"] = [](const peg::SemanticValues& semantic_values) { return pl_ast::Identifier{semantic_values.token_to_string()}; };
 
     parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::Integer{semantic_values.token_to_number<int64_t>()};
+      return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
+    };
+
+    parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.token_to_string() == "true"}};
+    };
+
+    parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
+
+    parser["Primary"] = [](const peg::SemanticValues& semantic_values) {
+      return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+    };
+
+    parser["Expression"] = [](const peg::SemanticValues& semantic_values) {
+      return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
     };
 
     parser["Print"] = [](const peg::SemanticValues& semantic_values) {
-      pl_ast::PrintInstruction print_instruction;
+      pl_ast::PrintStatement print_statement;
       if (!semantic_values.empty()) {
-        print_instruction.value_ = std::any_cast<pl_ast::Integer>(semantic_values[0]);
+        print_statement.expression_ = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
       }
-      return print_instruction;
+      return print_statement;
     };
 
-    parser["Instruction"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::InstructionVariant{std::any_cast<pl_ast::PrintInstruction>(semantic_values[0])};
-    };
-
-    parser["Body"] = [](const peg::SemanticValues& semantic_values) {
-      std::vector<pl_ast::InstructionVariant> instruction_variants;
-      instruction_variants.reserve(semantic_values.size());
-
-      for (const auto& semantic_value : semantic_values) {
-        instruction_variants.push_back(std::any_cast<pl_ast::InstructionVariant>(semantic_value));
-      }
-
-      return instruction_variants;
+    parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{std::any_cast<pl_ast::PrintStatement>(semantic_values[0])};
     };
 
     // Using designated initializers for clarity & safety against changing field positions
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
+      std::vector<pl_ast::StatementVariant> statement_variants;
+      statement_variants.reserve(semantic_values.size() - 1);
+
+      for (size_t semantic_value_index = 1; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
+        statement_variants.push_back(std::any_cast<pl_ast::StatementVariant>(semantic_values[semantic_value_index]));
+      }
+
       return pl_ast::Function{
-        .return_type_ = std::any_cast<pl_ast::Type>(semantic_values[0]),
-        .name_ = std::any_cast<pl_ast::Identifier>(semantic_values[1]),
-        .instructions_ = std::any_cast<std::vector<pl_ast::InstructionVariant>>(semantic_values[2]),
+        .identifier_ = std::any_cast<pl_ast::Identifier>(semantic_values[0]),
+        .statements_ = std::move(statement_variants),
       };
     };
 
