@@ -4,7 +4,7 @@
 
 #include "../pl_ast.h"
 #include "debug_helpers.h"
-#include "template_helpers.h"
+#include "overloaded.h"
 
 namespace debug_helpers {
   std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
@@ -24,6 +24,7 @@ namespace debug_helpers {
         [](const pl_ast::IntegerLiteralExpression& integer_expression) -> std::string { return std::to_string(integer_expression.value_); },
         [](const pl_ast::BoolLiteralExpression& bool_expression) -> std::string { return bool_expression.value_ ? "true" : "false"; },
         [](const pl_ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
+        [](const pl_ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
         [](const pl_ast::BinaryExpression& binary_expression) -> std::string {
           return "(" + ToString(*binary_expression.left_operand_) + " " + ToString(binary_expression.operator_) + " "
                  + ToString(*binary_expression.right_operand_) + ")";
@@ -47,6 +48,13 @@ namespace debug_helpers {
               program_string += ToString(*debug_print_statement.expression_);
             }
             program_string += ");\n";
+          },
+          [&program_string](const pl_ast::LetStatement& let_statement) {
+            program_string += "\tlet " + let_statement.identifier_.name_ + " = " + ToString(let_statement.initializer_expression_) + ";\n";
+          },
+          [&program_string](const pl_ast::AssignmentStatement& assignment_statement) {
+            program_string += "\t" + assignment_statement.identifier_.name_ + " = "
+                              + ToString(assignment_statement.assigned_expression_) + ";\n";
           },
         },
         statement_variant

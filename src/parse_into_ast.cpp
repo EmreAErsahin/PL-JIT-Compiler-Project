@@ -1,7 +1,7 @@
 #include "peglib.h"
 
-#include <concepts>
 #include <any>
+#include <concepts>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -21,15 +21,25 @@ namespace parse_into_ast {
 
     constexpr auto pl_grammar = R"(
       Program                    <- Function
-      Function                   <- 'fn' Identifier '(' ')' '{' Statement* '}'
-      Statement                  <- DebugPrint ';'
-      DebugPrint                 <- 'debugPrint' '(' Expression? ')'
+      KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
+      KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
+      KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
+      KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
+      KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
+      KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
+      Function                   <- KeywordFn Identifier '(' ')' '{' Statement* '}'
+      Statement                  <- DebugPrintStatement / LetStatement / AssignmentStatement
+      DebugPrintStatement        <- KeywordDebugPrint '(' Expression? ')' ';'
+      LetStatement               <- KeywordLet Identifier '=' Expression ';'
+      AssignmentStatement        <- Identifier '=' Expression ';'
       Expression                 <- InfixExpression(Atom, ArithmeticOperator)
-      Atom                       <- Integer / Bool / Nothing / '(' Expression ')'
+      Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
+      IdentifierExpression       <- Identifier
       ArithmeticOperator         <- < [-+/*] >
-      Bool                       <- 'true' / 'false'
-      Nothing                    <- 'nothing'
-      Identifier                 <- < [a-zA-Z_][a-zA-Z0-9_]* >
+      Bool                       <- KeywordTrue / KeywordFalse
+      Nothing                    <- KeywordNothing
+      Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
+      IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Integer                    <- < '-'? [0-9]+ >
       InfixExpression(A, O)      <- A (O A)* {
         precedence
@@ -43,11 +53,23 @@ namespace parse_into_ast {
       throw std::runtime_error("MakeParser: failed to load parser grammar");
     }
 
-    parser["Identifier"] = [](const peg::SemanticValues& semantic_values) { return pl_ast::Identifier{semantic_values.token_to_string()}; };
+    parser["IdentifierToken"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::Identifier{semantic_values.token_to_string()};
+    };
+
+    parser["Identifier"] = [](const peg::SemanticValues& semantic_values) {
+      return CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
+    };
 
     parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
     };
+
+    parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.token_to_string() == "true"}};
+    };
+
+    parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
 
     parser["ArithmeticOperator"] = [](const peg::SemanticValues& semantic_values) {
       switch (*semantic_values.sv().begin()) {
@@ -59,11 +81,9 @@ namespace parse_into_ast {
       }
     };
 
-    parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.token_to_string() == "true"}};
+    parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}};
     };
-
-    parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
 
     parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
       return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
@@ -79,41 +99,58 @@ namespace parse_into_ast {
       if (semantic_values.size() > 1) {
         result = pl_ast::ExpressionVariant{
           pl_ast::BinaryExpression{
-                                    .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(result)),
-                                    .operator_ = CastSemanticValueTo<pl_ast::ArithmeticOperator>(semantic_values, 1),
-                                    .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(
-                                      CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2)
-                                    ),
-                                    }
+                                   .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(result)),
+                                   .operator_ = CastSemanticValueTo<pl_ast::ArithmeticOperator>(semantic_values, 1),
+                                   .right_operand_ =
+              std::make_shared<pl_ast::ExpressionVariant>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2)),
+                                   }
         };
       }
 
       return result;
     };
 
-    parser["DebugPrint"] = [](const peg::SemanticValues& semantic_values) {
+    parser["DebugPrintStatement"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::DebugPrintStatement debug_print_statement;
-      if (!semantic_values.empty()) {
-        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      if (semantic_values.size() > 1) {
+        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1);
       }
-      return debug_print_statement;
+      return pl_ast::StatementVariant{debug_print_statement};
+    };
+
+    parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{
+        pl_ast::LetStatement{
+                             .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 1),
+                             .initializer_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2),
+                             }
+      };
+    };
+
+    parser["AssignmentStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{
+        pl_ast::AssignmentStatement{
+                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
+                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
+                                    }
+      };
     };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::StatementVariant{CastSemanticValueTo<pl_ast::DebugPrintStatement>(semantic_values, 0)};
+      return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
     };
 
     // Using designated initializers for clarity & safety against changing field positions
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
       std::vector<pl_ast::StatementVariant> statement_variants;
-      statement_variants.reserve(semantic_values.size() - 1);
+      statement_variants.reserve(semantic_values.size() - 2);
 
-      for (size_t semantic_value_index = 1; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
+      for (size_t semantic_value_index = 2; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
         statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
       }
 
       return pl_ast::Function{
-        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
+        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 1),
         .statements_ = std::move(statement_variants),
       };
     };

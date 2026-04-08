@@ -1,0 +1,7 @@
+fn main() {
+    let x = 1;
+    x = true;
+    debugPrint(x);
+    x = nothing;
+    debugPrint(x);
+}
