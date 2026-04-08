@@ -1,5 +1,6 @@
 #include "peglib.h"
 
+#include <concepts>
 #include <any>
 #include <memory>
 #include <stdexcept>
@@ -9,6 +10,12 @@
 #include "parse_into_ast.h"
 
 namespace parse_into_ast {
+  // Parsing library requires copyable types
+  template <std::copy_constructible T>
+  T CastSemanticValueTo(const peg::SemanticValues& semantic_values, const size_t index) {
+    return std::any_cast<T>(semantic_values[index]);
+  }
+
   peg::parser MakeParser() {
     peg::parser parser;
 
@@ -59,23 +66,25 @@ namespace parse_into_ast {
     parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
 
     parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
-      return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
     };
 
     parser["Expression"] = [](const peg::SemanticValues& semantic_values) {
-      return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
     };
 
     parser["InfixExpression"] = [](const peg::SemanticValues& semantic_values) {
-      auto result = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+      auto result = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
 
       if (semantic_values.size() > 1) {
         result = pl_ast::ExpressionVariant{
           pl_ast::BinaryExpression{
-                                   .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(result)),
-                                   .operator_ = std::any_cast<pl_ast::ArithmeticOperator>(semantic_values[1]),
-                                   .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::any_cast<pl_ast::ExpressionVariant>(semantic_values[2])),
-                                   }
+                                    .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(result)),
+                                    .operator_ = CastSemanticValueTo<pl_ast::ArithmeticOperator>(semantic_values, 1),
+                                    .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(
+                                      CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2)
+                                    ),
+                                    }
         };
       }
 
@@ -85,13 +94,13 @@ namespace parse_into_ast {
     parser["DebugPrint"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::DebugPrintStatement debug_print_statement;
       if (!semantic_values.empty()) {
-        debug_print_statement.expression_ = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
       }
       return debug_print_statement;
     };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::StatementVariant{std::any_cast<pl_ast::DebugPrintStatement>(semantic_values[0])};
+      return pl_ast::StatementVariant{CastSemanticValueTo<pl_ast::DebugPrintStatement>(semantic_values, 0)};
     };
 
     // Using designated initializers for clarity & safety against changing field positions
@@ -100,17 +109,17 @@ namespace parse_into_ast {
       statement_variants.reserve(semantic_values.size() - 1);
 
       for (size_t semantic_value_index = 1; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
-        statement_variants.push_back(std::any_cast<pl_ast::StatementVariant>(semantic_values[semantic_value_index]));
+        statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
       }
 
       return pl_ast::Function{
-        .identifier_ = std::any_cast<pl_ast::Identifier>(semantic_values[0]),
+        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
         .statements_ = std::move(statement_variants),
       };
     };
 
     parser["Program"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::Program{.function_ = std::any_cast<pl_ast::Function>(semantic_values[0])};
+      return pl_ast::Program{.function_ = CastSemanticValueTo<pl_ast::Function>(semantic_values, 0)};
     };
 
     // Trades memory usage for better speed with memoization of grammar rules
@@ -134,7 +143,7 @@ namespace parse_into_ast {
 
     pl_ast::Program program_ast;
     if (!parser.parse(file_contents, program_ast)) {
-      // TODO: Sometimes logger won't populate all of these
+      // TODO: Sometimes logger won't populate all of these, potentially leading to poor error messages
       throw std::runtime_error(
         "ParseFileContentsIntoAST: parse failed at " + std::to_string(error_line) + ':' + std::to_string(error_column) + ": "
         + error_message

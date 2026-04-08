@@ -1,0 +1,3 @@
+fn notMain() {
+    debugPrint(1);
+}

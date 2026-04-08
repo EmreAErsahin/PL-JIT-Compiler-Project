@@ -31,6 +31,8 @@ namespace pl_ast {
 
   using ExpressionVariant = std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, BinaryExpression>;
 
+  // TODO: Try to find a better alternative. Shared ownership is awkward cuz only the AST needs
+  // to own this, but peglib stores semantic values as std::any which requires copyable objects
   using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
   struct BinaryExpression {
