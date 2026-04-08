@@ -26,13 +26,18 @@ namespace pl_ast {
     std::string name_;
   };
 
+  struct IdentifierExpression {
+    Identifier identifier_;
+  };
+
   // Forward declaration bc of circular dependency with BinaryExpression & ExpressionVariant
   struct BinaryExpression;
 
-  using ExpressionVariant = std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, BinaryExpression>;
+  using ExpressionVariant =
+    std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, BinaryExpression, IdentifierExpression>;
 
-  // TODO: Try to find a better alternative. Shared ownership is awkward cuz only the AST needs
-  // to own this, but peglib stores semantic values as std::any which requires copyable objects
+  // TODO: Try to find a better alternative for shared ptr. Shared ownership is awkward bc only the AST needs
+  // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
   using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
   struct BinaryExpression {
@@ -45,7 +50,18 @@ namespace pl_ast {
     std::optional<ExpressionVariant> expression_;
   };
 
-  using StatementVariant = std::variant<DebugPrintStatement>;
+  // Variable bindings are introduced with an initializer expression; bare declarations are not supported.
+  struct LetStatement {
+    Identifier identifier_;
+    ExpressionVariant initializer_expression_;
+  };
+
+  struct AssignmentStatement {
+    Identifier identifier_;
+    ExpressionVariant assigned_expression_;
+  };
+
+  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement>;
 
   struct Function {
     Identifier identifier_;

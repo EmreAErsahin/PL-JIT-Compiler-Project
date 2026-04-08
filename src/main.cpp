@@ -1,4 +1,5 @@
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -12,7 +13,7 @@ int main(const int argc, char** argv) {
   // All options user can pass in
   bool debug = false;
 
-  std::string source_path;
+  std::filesystem::path source_path;
 
   if (argc == 2) {
     source_path = argv[1];

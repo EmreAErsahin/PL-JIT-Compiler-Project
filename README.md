@@ -9,11 +9,11 @@ collector and JIT compiler.
 - To run the project
     - Build the project: `make build`
     - Run the interpreter directly: `./build/interpreter SOURCE`
-    - Run with AST debug output: `./build/interpreter --debug SOURCE`
     - Run a single passing test: `./scripts/run_single_test.sh tests/pass/<test_name>.ee`
     - Run all passing tests: `./scripts/run_passing_tests.sh`
     - Run all failing tests: `./scripts/run_failing_tests.sh`
     - Run the full test suite: `./scripts/run_all_tests.sh`
+    - Run a test with AST debug output: `./scripts/debug_test.sh tests/pass/<test_name>.ee`
 - Other options
     - `make clean` -> cleans the `build/` directory
 
@@ -23,13 +23,17 @@ Program      <- Function
 
 Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
 
-Statement    <- DebugPrint ';'
+Statement    <- DebugPrintStatement / LetStatement / AssignmentStatement
 
-DebugPrint   <- 'debugPrint' '(' Expression? ')'
+DebugPrintStatement <- 'debugPrint' '(' Expression? ')' ';'
+
+LetStatement <- 'let' Identifier '=' Expression ';'
+
+AssignmentStatement <- Identifier '=' Expression ';'
 
 Expression   <- InfixExpression(Atom, ArithmeticOperator)
 
-Atom         <- Integer / Bool / Nothing / '(' Expression ')'
+Atom         <- Integer / Bool / Nothing / IdentifierExpr / '(' Expression ')'
 
 ArithmeticOperator <- < [-+/*] >
 
@@ -41,34 +45,37 @@ Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
 
 Integer      <- < '-'? [0-9]+ >
 
+IdentifierExpr <- Identifier
+
 InfixExpression(A, O) <- A (O A)* {
-  precedence
-    L + -
-    L * /
+precedence
+L + -
+L * /
 }
 
 %whitespace  <- [ \t\r\n]*
 
-## Stage 1 Grammar (Not yet implemented pieces preceded with ---)
+## Stage 1 Grammar (planned extensions; not yet implemented pieces preceded with ---)
 
 Program         <- Function
 Function        <- 'fn' Identifier '(' ')' Block
 --- Block           <- '{' Statement* '}'
---- Statement       <- DebugPrintStmt / LetStmt / IfStmt
---- DebugPrintStmt  <- 'debugPrint' '(' Expression? ')' ';'
---- LetStmt         <- 'let' Identifier '=' Expression ';'
+--- Statement       <- DebugPrintStmt / LetStmt / AssignmentStmt / IfStmt
+DebugPrintStmt  <- 'debugPrint' '(' Expression? ')' ';'
+LetStmt         <- 'let' Identifier '=' Expression ';'
+AssignmentStmt  <- Identifier '=' Expression ';'
 --- IfStmt          <- 'if' '(' Expression ')' Block
 Expression      <- InfixExpression(Atom, ArithmeticOperator)
 Atom            <- Integer / Bool / Nothing / '(' Expression ')'
 ArithmeticOperator <- < [-+/*] >
 InfixExpression(A, O) <- A (O A)* {
-  precedence
-    L + -
-    L * /
+precedence
+L + -
+L * /
 }
---- IdentifierExpr  <- Identifier
---- Bool            <- 'true' / 'false'
---- Nothing         <- 'nothing'
+IdentifierExpr  <- Identifier
+Bool            <- 'true' / 'false'
+Nothing         <- 'nothing'
 Identifier      <- < [a-zA-Z_][a-zA-Z0-9_]* >
 Integer         <- < '-'? [0-9]+ >
 
@@ -80,12 +87,18 @@ Integer         <- < '-'? [0-9]+ >
 - `debugPrint()` behavior: Prints nothing
 - Arithmetic currently supports `+`, `-`, `*`, and `/` on integers only
 - Parentheses are supported in arithmetic expressions
+- Integer literals may be negative, for example `-5`
+- Variables are introduced with `let`, for example `let x = 1;`
+- Existing variables can be reassigned with `x = expression;`
+- Variables can be used anywhere expressions are allowed
 - Functions are declared with `fn`, for example `fn main() { ... }`
 
 ## Invariants
 
 - For the program to run there must be a function called main. This is the entry point
-- The interpreter takes exactly one source file path, with optional `--debug` before it
+- Variables must be initialized when declared; bare declarations are not supported
+- Reassignment requires the variable to already exist
+- The interpreter takes exactly one source file path, with optional `--debug` flag for AST debug output
 
 ## Future Features
 
