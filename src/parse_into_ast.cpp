@@ -1,6 +1,7 @@
 #include "peglib.h"
 
 #include <any>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -12,17 +13,23 @@ namespace parse_into_ast {
     peg::parser parser;
 
     constexpr auto pl_grammar = R"(
-      Program      <- Function
-      Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
-      Statement    <- Print ';'
-      Print        <- 'print' '(' Expression? ')'
-      Expression   <- Primary
-      Primary      <- Integer / Bool / Nothing
-      Bool         <- 'true' / 'false'
-      Nothing      <- 'nothing'
-      Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
-      Integer      <- < '-'? [0-9]+ >
-      %whitespace  <- [ \t\r\n]*
+      Program                    <- Function
+      Function                   <- 'fn' Identifier '(' ')' '{' Statement* '}'
+      Statement                  <- DebugPrint ';'
+      DebugPrint                 <- 'debugPrint' '(' Expression? ')'
+      Expression                 <- InfixExpression(Atom, ArithmeticOperator)
+      Atom                       <- Integer / Bool / Nothing / '(' Expression ')'
+      ArithmeticOperator         <- < [-+/*] >
+      Bool                       <- 'true' / 'false'
+      Nothing                    <- 'nothing'
+      Identifier                 <- < [a-zA-Z_][a-zA-Z0-9_]* >
+      Integer                    <- < '-'? [0-9]+ >
+      InfixExpression(A, O)      <- A (O A)* {
+        precedence
+          L + -
+          L * /
+      }
+      %whitespace                <- [ \t\r\n]*
     )";
 
     if (!parser.load_grammar(pl_grammar)) {
@@ -35,13 +42,23 @@ namespace parse_into_ast {
       return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
     };
 
+    parser["ArithmeticOperator"] = [](const peg::SemanticValues& semantic_values) {
+      switch (*semantic_values.sv().begin()) {
+        case '+': return pl_ast::ArithmeticOperator::ADD;
+        case '-': return pl_ast::ArithmeticOperator::SUBTRACT;
+        case '*': return pl_ast::ArithmeticOperator::MULTIPLY;
+        case '/': return pl_ast::ArithmeticOperator::DIVIDE;
+        default: throw std::runtime_error("ArithmeticOperator: unsupported operator");
+      }
+    };
+
     parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.token_to_string() == "true"}};
     };
 
     parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
 
-    parser["Primary"] = [](const peg::SemanticValues& semantic_values) {
+    parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
       return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
     };
 
@@ -49,16 +66,32 @@ namespace parse_into_ast {
       return std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
     };
 
-    parser["Print"] = [](const peg::SemanticValues& semantic_values) {
-      pl_ast::PrintStatement print_statement;
-      if (!semantic_values.empty()) {
-        print_statement.expression_ = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+    parser["InfixExpression"] = [](const peg::SemanticValues& semantic_values) {
+      auto result = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+
+      if (semantic_values.size() > 1) {
+        result = pl_ast::ExpressionVariant{
+          pl_ast::BinaryExpression{
+                                   .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(result)),
+                                   .operator_ = std::any_cast<pl_ast::ArithmeticOperator>(semantic_values[1]),
+                                   .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::any_cast<pl_ast::ExpressionVariant>(semantic_values[2])),
+                                   }
+        };
       }
-      return print_statement;
+
+      return result;
+    };
+
+    parser["DebugPrint"] = [](const peg::SemanticValues& semantic_values) {
+      pl_ast::DebugPrintStatement debug_print_statement;
+      if (!semantic_values.empty()) {
+        debug_print_statement.expression_ = std::any_cast<pl_ast::ExpressionVariant>(semantic_values[0]);
+      }
+      return debug_print_statement;
     };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::StatementVariant{std::any_cast<pl_ast::PrintStatement>(semantic_values[0])};
+      return pl_ast::StatementVariant{std::any_cast<pl_ast::DebugPrintStatement>(semantic_values[0])};
     };
 
     // Using designated initializers for clarity & safety against changing field positions
