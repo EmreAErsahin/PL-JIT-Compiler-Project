@@ -1,5 +1,5 @@
 fn main() {
-    print(1);
-    print(2);
-    print(3);
+    debugPrint(1);
+    debugPrint(2);
+    debugPrint(3);
 }

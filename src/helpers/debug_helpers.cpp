@@ -1,4 +1,5 @@
 #include <string>
+#include <stdexcept>
 #include <variant>
 
 #include "../pl_ast.h"
@@ -6,12 +7,28 @@
 #include "template_helpers.h"
 
 namespace debug_helpers {
+  std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
+    switch (arithmetic_operator) {
+      case pl_ast::ArithmeticOperator::ADD: return "+";
+      case pl_ast::ArithmeticOperator::SUBTRACT: return "-";
+      case pl_ast::ArithmeticOperator::MULTIPLY: return "*";
+      case pl_ast::ArithmeticOperator::DIVIDE: return "/";
+    }
+
+    throw std::runtime_error("ToString: unsupported arithmetic operator");
+  }
+
   std::string ToString(const pl_ast::ExpressionVariant& expression_variant) {
     return std::visit(
       template_helpers::Overloaded{
         [](const pl_ast::IntegerLiteralExpression& integer_expression) -> std::string { return std::to_string(integer_expression.value_); },
         [](const pl_ast::BoolLiteralExpression& bool_expression) -> std::string { return bool_expression.value_ ? "true" : "false"; },
         [](const pl_ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
+        [](const pl_ast::BinaryExpression& binary_expression) -> std::string {
+          return "(" + ToString(*binary_expression.left_operand_) + " " + ToString(binary_expression.operator_) + " "
+                 + ToString(*binary_expression.right_operand_) + ")";
+        },
+        [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
       expression_variant
     );
@@ -24,10 +41,10 @@ namespace debug_helpers {
     for (const auto& statement_variant : program.function_.statements_) {
       std::visit(
         template_helpers::Overloaded{
-          [&program_string](const pl_ast::PrintStatement& print_statement) {
-            program_string += "\tprint(";
-            if (print_statement.expression_) {
-              program_string += ToString(*print_statement.expression_);
+          [&program_string](const pl_ast::DebugPrintStatement& debug_print_statement) {
+            program_string += "\tdebugPrint(";
+            if (debug_print_statement.expression_) {
+              program_string += ToString(*debug_print_statement.expression_);
             }
             program_string += ");\n";
           },

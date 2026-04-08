@@ -2,6 +2,7 @@
 #define pl_ast_H
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
@@ -18,18 +19,31 @@ namespace pl_ast {
 
   struct NothingLiteralExpression {};
 
-  using ExpressionVariant = std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression>;
+  enum class ArithmeticOperator { ADD, SUBTRACT, MULTIPLY, DIVIDE };
 
   // Variables, function names
   struct Identifier {
     std::string name_;
   };
 
-  struct PrintStatement {
+  // Forward declaration bc of circular dependency with BinaryExpression & ExpressionVariant
+  struct BinaryExpression;
+
+  using ExpressionVariant = std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, BinaryExpression>;
+
+  using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
+
+  struct BinaryExpression {
+    ExpressionPointer left_operand_;
+    ArithmeticOperator operator_;
+    ExpressionPointer right_operand_;
+  };
+
+  struct DebugPrintStatement {
     std::optional<ExpressionVariant> expression_;
   };
 
-  using StatementVariant = std::variant<PrintStatement>;
+  using StatementVariant = std::variant<DebugPrintStatement>;
 
   struct Function {
     Identifier identifier_;

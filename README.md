@@ -23,13 +23,15 @@ Program      <- Function
 
 Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
 
-Statement    <- Print ';'
+Statement    <- DebugPrint ';'
 
-Print        <- 'print' '(' Expression? ')'
+DebugPrint   <- 'debugPrint' '(' Expression? ')'
 
-Expression   <- Primary
+Expression   <- InfixExpression(Atom, ArithmeticOperator)
 
-Primary      <- Integer / Bool / Nothing
+Atom         <- Integer / Bool / Nothing / '(' Expression ')'
+
+ArithmeticOperator <- < [-+/*] >
 
 Bool         <- 'true' / 'false'
 
@@ -39,6 +41,12 @@ Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
 
 Integer      <- < '-'? [0-9]+ >
 
+InfixExpression(A, O) <- A (O A)* {
+  precedence
+    L + -
+    L * /
+}
+
 %whitespace  <- [ \t\r\n]*
 
 ## Stage 1 Grammar (Not yet implemented pieces preceded with ---)
@@ -46,15 +54,19 @@ Integer      <- < '-'? [0-9]+ >
 Program         <- Function
 Function        <- 'fn' Identifier '(' ')' Block
 --- Block           <- '{' Statement* '}'
---- Statement       <- PrintStmt / LetStmt / IfStmt
---- PrintStmt       <- 'print' '(' Expression? ')' ';'
+--- Statement       <- DebugPrintStmt / LetStmt / IfStmt
+--- DebugPrintStmt  <- 'debugPrint' '(' Expression? ')' ';'
 --- LetStmt         <- 'let' Identifier '=' Expression ';'
 --- IfStmt          <- 'if' '(' Expression ')' Block
---- Expression      <- Additive
---- Additive        <- Multiplicative (('+' / '-') Multiplicative)*
---- Multiplicative  <- Unary (('*' / '/') Unary)*
---- Unary           <- Primary
---- Primary         <- Integer / Bool / Nothing / Identifier / '(' Expression ')'
+Expression      <- InfixExpression(Atom, ArithmeticOperator)
+Atom            <- Integer / Bool / Nothing / '(' Expression ')'
+ArithmeticOperator <- < [-+/*] >
+InfixExpression(A, O) <- A (O A)* {
+  precedence
+    L + -
+    L * /
+}
+--- IdentifierExpr  <- Identifier
 --- Bool            <- 'true' / 'false'
 --- Nothing         <- 'nothing'
 Identifier      <- < [a-zA-Z_][a-zA-Z0-9_]* >
@@ -62,8 +74,12 @@ Integer         <- < '-'? [0-9]+ >
 
 ## Language Semantics
 
-- `print(<integer>)` behavior: Prints the value with no automatic newline
-- `print()` behavior: Prints nothing
+- `debugPrint(<integer>)` behavior: Prints the value with no automatic newline
+- `debugPrint(<bool>)` prints `true` or `false`
+- `debugPrint(nothing)` prints `nothing`
+- `debugPrint()` behavior: Prints nothing
+- Arithmetic currently supports `+`, `-`, `*`, and `/` on integers only
+- Parentheses are supported in arithmetic expressions
 - Functions are declared with `fn`, for example `fn main() { ... }`
 
 ## Invariants
