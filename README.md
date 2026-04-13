@@ -55,30 +55,6 @@ L * /
 
 %whitespace  <- [ \t\r\n]*
 
-## Stage 1 Grammar (planned extensions; not yet implemented pieces preceded with ---)
-
-Program         <- Function
-Function        <- 'fn' Identifier '(' ')' Block
---- Block           <- '{' Statement* '}'
---- Statement       <- DebugPrintStmt / LetStmt / AssignmentStmt / IfStmt
-DebugPrintStmt  <- 'debugPrint' '(' Expression? ')' ';'
-LetStmt         <- 'let' Identifier '=' Expression ';'
-AssignmentStmt  <- Identifier '=' Expression ';'
---- IfStmt          <- 'if' '(' Expression ')' Block
-Expression      <- InfixExpression(Atom, ArithmeticOperator)
-Atom            <- Integer / Bool / Nothing / '(' Expression ')'
-ArithmeticOperator <- < [-+/*] >
-InfixExpression(A, O) <- A (O A)* {
-precedence
-L + -
-L * /
-}
-IdentifierExpr  <- Identifier
-Bool            <- 'true' / 'false'
-Nothing         <- 'nothing'
-Identifier      <- < [a-zA-Z_][a-zA-Z0-9_]* >
-Integer         <- < '-'? [0-9]+ >
-
 ## Language Semantics
 
 - `debugPrint(<integer>)` behavior: Prints the value with no automatic newline

@@ -1,0 +1,4 @@
+fn main() {
+    // Assignment should still require an existing variable
+    x = 3;
+}

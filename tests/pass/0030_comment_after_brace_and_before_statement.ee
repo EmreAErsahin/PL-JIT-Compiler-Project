@@ -1,0 +1,5 @@
+fn main() { // comment after opening brace
+    // comment before first statement
+    let x = 4;
+    debugPrint(x);
+}

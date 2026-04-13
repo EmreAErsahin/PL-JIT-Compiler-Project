@@ -1,7 +1,7 @@
 #include "peglib.h"
 
-#include <any>
 #include <concepts>
+#include <any>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -46,7 +46,11 @@ namespace parse_into_ast {
           L + -
           L * /
       }
-      %whitespace                <- [ \t\r\n]*
+      End <- EndOfLine / EndOfFile
+      EndOfLine <- '\r\n' / '\n' / '\r'
+      EndOfFile                <-  !.
+      LineComment <- '//' (!End .)* &End
+      %whitespace                <- ([ \t\r\n] / LineComment)*
     )";
 
     if (!parser.load_grammar(pl_grammar)) {

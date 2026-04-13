@@ -1,0 +1,4 @@
+fn main() {
+    // Runtime error should still surface with comments present
+    debugPrint(missing);
+}
