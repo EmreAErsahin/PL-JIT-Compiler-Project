@@ -1,1 +1,1 @@
-ParseFileContentsIntoAST: parse failed at 1:8: syntax error, unexpected '(', expecting <KeywordTrue>.
+ParseFileContentsIntoAST: parse failed at 1:8: syntax error, unexpected '(', expecting <KeywordTrue>, '//'.
