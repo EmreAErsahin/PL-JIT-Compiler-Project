@@ -19,6 +19,12 @@ namespace parse_into_ast {
   peg::parser MakeParser() {
     peg::parser parser;
 
+    // Grammar notes:
+    // - <...>: treat the whole match as one token (tokens have automatic whitespace consumption after)
+    // - ~Rule: parse it, but ignore its semantic value
+    // - !Rule: next input must not match Rule
+    // - %whitespace: automatically skips between tokens, literal string, & start of input
+    // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
     constexpr auto pl_grammar = R"(
       Program                    <- Function
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
@@ -27,17 +33,18 @@ namespace parse_into_ast {
       KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
       KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
       KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
-      Function                   <- KeywordFn Identifier '(' ')' '{' Statement* '}'
-      Statement                  <- DebugPrintStatement / LetStatement / AssignmentStatement
-      DebugPrintStatement        <- KeywordDebugPrint '(' Expression? ')' ';'
-      LetStatement               <- KeywordLet Identifier '=' Expression ';'
+      Block <- '{' Statement* '}'
+      Function                   <- ~KeywordFn Identifier '(' ')' Block
+      Statement                  <- DebugPrintStatement / LetStatement / AssignmentStatement / Block
+      DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
+      LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
       Expression                 <- InfixExpression(Atom, ArithmeticOperator)
       Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
       IdentifierExpression       <- Identifier
       ArithmeticOperator         <- < [-+/*] >
-      Bool                       <- KeywordTrue / KeywordFalse
-      Nothing                    <- KeywordNothing
+      Bool                       <- ~KeywordTrue / ~KeywordFalse
+      Nothing                    <- ~KeywordNothing
       Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Integer                    <- < '-'? [0-9]+ >
@@ -61,16 +68,12 @@ namespace parse_into_ast {
       return pl_ast::Identifier{semantic_values.token_to_string()};
     };
 
-    parser["Identifier"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
-    };
-
     parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
     };
 
     parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.token_to_string() == "true"}};
+      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.choice() == 0}};
     };
 
     parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
@@ -116,8 +119,8 @@ namespace parse_into_ast {
 
     parser["DebugPrintStatement"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::DebugPrintStatement debug_print_statement;
-      if (semantic_values.size() > 1) {
-        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1);
+      if (!semantic_values.empty()) {
+        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
       }
       return pl_ast::StatementVariant{debug_print_statement};
     };
@@ -125,8 +128,8 @@ namespace parse_into_ast {
     parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{
         pl_ast::LetStatement{
-                             .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 1),
-                             .initializer_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2),
+                             .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
+                             .initializer_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
                              }
       };
     };
@@ -141,21 +144,29 @@ namespace parse_into_ast {
     };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
+      // Checking if we have a block pointer (needs special cast bc we store it as a block ptr bc it may need to be put into a function)
+      if (semantic_values.choice() == 3) {
+        return pl_ast::StatementVariant{CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 0)};
+      }
       return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
+    };
+
+    parser["Block"] = [](const peg::SemanticValues& semantic_values) {
+      std::vector<pl_ast::StatementVariant> statement_variants;
+      statement_variants.reserve(semantic_values.size());
+
+      for (size_t semantic_value_index = 0; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
+        statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
+      }
+
+      return std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)});
     };
 
     // Using designated initializers for clarity & safety against changing field positions
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
-      std::vector<pl_ast::StatementVariant> statement_variants;
-      statement_variants.reserve(semantic_values.size() - 2);
-
-      for (size_t semantic_value_index = 2; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
-        statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
-      }
-
       return pl_ast::Function{
-        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 1),
-        .statements_ = std::move(statement_variants),
+        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
+        .function_block_ = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 1),
       };
     };
 

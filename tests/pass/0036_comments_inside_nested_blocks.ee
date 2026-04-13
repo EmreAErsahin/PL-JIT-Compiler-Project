@@ -1,0 +1,6 @@
+fn main() {
+    {
+        // comment inside nested block
+        debugPrint(7);
+    }
+}

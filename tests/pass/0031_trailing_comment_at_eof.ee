@@ -1,0 +1,3 @@
+fn main() {
+    debugPrint(9);
+} // trailing comment at EOF

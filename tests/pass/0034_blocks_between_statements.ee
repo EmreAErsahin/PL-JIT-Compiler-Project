@@ -1,0 +1,8 @@
+fn main() {
+    debugPrint(1);
+    {
+        {
+        }
+    }
+    debugPrint(2);
+}
