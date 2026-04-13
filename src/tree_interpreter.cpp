@@ -1,8 +1,10 @@
 #include <iostream>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include "helpers/overloaded.h"
 #include "pl_ast.h"
@@ -13,18 +15,19 @@ namespace tree_interpreter {
   struct NothingValue {};
 
   using Value = std::variant<int64_t, bool, NothingValue>;
+  using Scope = std::unordered_map<std::string, Value>;
 
   struct RuntimeState {
-    std::unordered_map<std::string, Value> variables_;
+    std::vector<Scope> scopes_;
   };
 
   // Runtime helpers
-  int64_t RequireInteger(const Value& value) {
+  int64_t RequireAndGetInteger(const Value& value) {
     if (const auto integer_value = std::get_if<int64_t>(&value)) {
       return *integer_value;
     }
 
-    throw std::runtime_error("RequireInteger: arithmetic requires integer operands");
+    throw std::runtime_error("RequireAndGetInteger: arithmetic requires integer operands");
   }
 
   Value ExecuteOperation(const int64_t left_value, const pl_ast::ArithmeticOperator arithmetic_operator, const int64_t right_value) {
@@ -43,29 +46,32 @@ namespace tree_interpreter {
   }
 
   Value LookupVariable(const RuntimeState& runtime_state, const std::string& variable_name) {
-    const auto variable_iterator = runtime_state.variables_.find(variable_name);
-    if (variable_iterator == runtime_state.variables_.end()) {
-      throw std::runtime_error("EvaluateExpression: unknown variable '" + variable_name + "'");
+    for (const auto& scope : std::views::reverse(runtime_state.scopes_)) {
+      if (const auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
+        return variable_iterator->second;
+      }
     }
 
-    return variable_iterator->second;
+    throw std::runtime_error("EvaluateExpression: unknown variable '" + variable_name + "'");
   }
 
   void DeclareVariable(RuntimeState& runtime_state, const std::string& variable_name, const Value& value) {
-    if (runtime_state.variables_.contains(variable_name)) {
+    auto& current_scope = runtime_state.scopes_.back();
+    if (const auto variable_iterator = current_scope.find(variable_name); variable_iterator != current_scope.end()) {
       throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' already declared");
     }
 
-    runtime_state.variables_.emplace(variable_name, value);
+    current_scope.emplace(variable_name, value);
   }
 
   void AssignVariable(RuntimeState& runtime_state, const std::string& variable_name, const Value& value) {
-    const auto variable_iterator = runtime_state.variables_.find(variable_name);
-    if (variable_iterator == runtime_state.variables_.end()) {
-      throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' is not declared");
+    for (auto& scope : std::views::reverse(runtime_state.scopes_)) {
+      if (auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
+        variable_iterator->second = value;
+        return;
+      }
     }
-
-    variable_iterator->second = value;
+    throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' is not declared");
   }
 
   void DebugPrintValue(const Value& value) {
@@ -91,14 +97,16 @@ namespace tree_interpreter {
           return LookupVariable(runtime_state, variable_name);
         },
         [&runtime_state](const pl_ast::BinaryExpression& binary_expression) -> Value {
-          const auto left_value = RequireInteger(EvaluateExpression(runtime_state, *binary_expression.left_operand_));
-          const auto right_value = RequireInteger(EvaluateExpression(runtime_state, *binary_expression.right_operand_));
+          const auto left_value = RequireAndGetInteger(EvaluateExpression(runtime_state, *binary_expression.left_operand_));
+          const auto right_value = RequireAndGetInteger(EvaluateExpression(runtime_state, *binary_expression.right_operand_));
           return ExecuteOperation(left_value, binary_expression.operator_, right_value);
         },
       },
       expression_variant
     );
   }
+
+  void ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer);
 
   void ExecuteStatement(RuntimeState& runtime_state, const pl_ast::StatementVariant& statement_variant) {
     std::visit(
@@ -114,15 +122,28 @@ namespace tree_interpreter {
         },
         [&runtime_state](const pl_ast::AssignmentStatement& assignment_statement) {
           const auto& variable_name = assignment_statement.identifier_.name_;
-          AssignVariable(
-            runtime_state,
-            variable_name,
-            EvaluateExpression(runtime_state, assignment_statement.assigned_expression_)
-          );
+          AssignVariable(runtime_state, variable_name, EvaluateExpression(runtime_state, assignment_statement.assigned_expression_));
         },
+        [&runtime_state](const pl_ast::BlockPointer& block_pointer) { ExecuteBlock(runtime_state, block_pointer); },
       },
       statement_variant
     );
+  }
+
+  void ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer) {
+    if (!block_pointer) {
+      throw std::runtime_error("ExecuteBlock: null block pointer");
+    }
+
+    // Entering new scope
+    runtime_state.scopes_.emplace_back();
+
+    for (const auto& statement_variant : block_pointer->statements_) {
+      ExecuteStatement(runtime_state, statement_variant);
+    }
+
+    // Leaving scope
+    runtime_state.scopes_.pop_back();
   }
 
   void ExecuteAstWithTreeInterpreter(const pl_ast::Program& program) {
@@ -137,9 +158,6 @@ namespace tree_interpreter {
     }
 
     RuntimeState runtime_state;
-
-    for (const auto& statement_variant : main_function->statements_) {
-      ExecuteStatement(runtime_state, statement_variant);
-    }
+    ExecuteBlock(runtime_state, main_function->function_block_);
   }
 } // namespace tree_interpreter

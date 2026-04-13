@@ -1,82 +1,120 @@
 # PL-JIT-Compiler-Project
 
-Building a programming language from scratch in C++. Starting with a tree-walk interpreter, with plans to add a garbage
-collector and JIT compiler.
+Small C++23 interpreter project for a custom language. The current implementation uses a handwritten AST, a `cpp-peglib` parser, and a tree-walk interpreter.
 
-## Build Details
+## Current Features
 
-- The project is built with CMake and a top-level Makefile wrapper
-- To run the project
-    - Build the project: `make build`
-    - Run the interpreter directly: `./build/interpreter SOURCE`
-    - Run a single passing test: `./scripts/run_single_test.sh tests/pass/<test_name>.ee`
-    - Run all passing tests: `./scripts/run_passing_tests.sh`
-    - Run all failing tests: `./scripts/run_failing_tests.sh`
-    - Run the full test suite: `./scripts/run_all_tests.sh`
-    - Run a test with AST debug output: `./scripts/debug_test.sh tests/pass/<test_name>.ee`
-- Other options
-    - `make clean` -> cleans the `build/` directory
+- One function program
+- Required `fn main()` in CLI mode
+- `debugPrint(...)`
+- `let` declarations with required initializers
+- Assignment to existing variables
+- Integer, boolean, and `nothing` literals
+- Identifier expressions
+- Arithmetic `+`, `-`, `*`, `/` on integers only
+- Parenthesized expressions
+- Nested `{ ... }` blocks
+- Lexical block scopes with shadowing
+- `//` line comments
 
-## Current Grammar (cpp-peglib preferred format)
+## Current Limitations
 
-Program      <- Function
+- `Program` stores exactly one function
+- No comparisons, `if`, `while`, `return`, params, or function calls
+- Arithmetic on non-integers is a runtime error
+- Division by zero is a runtime error
+- Errors are surfaced as `std::runtime_error` messages written to stderr
 
-Function     <- 'fn' Identifier '(' ')' '{' Statement* '}'
+## Build And Run
 
-Statement    <- DebugPrintStatement / LetStatement / AssignmentStatement
+```sh
+make build
+./build/interpreter SOURCE
+./build/interpreter --debug SOURCE
+make clean
+```
 
-DebugPrintStatement <- 'debugPrint' '(' Expression? ')' ';'
+## Tests
 
-LetStatement <- 'let' Identifier '=' Expression ';'
+```sh
+./scripts/run_single_test.sh tests/pass/<name>.ee
+./scripts/run_single_test.sh tests/fail/<name>.ee
+./scripts/run_passing_tests.sh
+./scripts/run_failing_tests.sh
+./scripts/run_all_tests.sh
+./scripts/debug_test.sh tests/pass/<name>.ee
+```
 
-AssignmentStatement <- Identifier '=' Expression ';'
+CI runs:
 
-Expression   <- InfixExpression(Atom, ArithmeticOperator)
+```sh
+make clean && make build
+./scripts/run_all_tests.sh
+```
 
-Atom         <- Integer / Bool / Nothing / IdentifierExpr / '(' Expression ')'
+## Current Grammar
 
-ArithmeticOperator <- < [-+/*] >
+```peg
+Program                    <- Function
+KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
+KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
+KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
+KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
+KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
+KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
 
-Bool         <- 'true' / 'false'
+Block                      <- '{' Statement* '}'
+Function                   <- ~KeywordFn Identifier '(' ')' Block
+Statement                  <- DebugPrintStatement / LetStatement / AssignmentStatement / Block
+DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
+LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
+AssignmentStatement        <- Identifier '=' Expression ';'
 
-Nothing      <- 'nothing'
+Expression                 <- InfixExpression(Atom, ArithmeticOperator)
+Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
+IdentifierExpression       <- Identifier
+ArithmeticOperator         <- < [-+/*] >
+Bool                       <- ~KeywordTrue / ~KeywordFalse
+Nothing                    <- ~KeywordNothing
 
-Identifier   <- < [a-zA-Z_][a-zA-Z0-9_]* >
+Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
+IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
+Integer                    <- < '-'? [0-9]+ >
 
-Integer      <- < '-'? [0-9]+ >
-
-IdentifierExpr <- Identifier
-
-InfixExpression(A, O) <- A (O A)* {
-precedence
-L + -
-L * /
+InfixExpression(A, O)      <- A (O A)* {
+  precedence
+    L + -
+    L * /
 }
 
-%whitespace  <- [ \t\r\n]*
+End                        <- EndOfLine / EndOfFile
+EndOfLine                  <- '\r\n' / '\n' / '\r'
+EndOfFile                  <- !.
+LineComment                <- '//' (!End .)* &End
+%whitespace                <- ([ \t\r\n] / LineComment)*
+```
 
-## Language Semantics
+## Semantics Notes
 
-- `debugPrint(<integer>)` behavior: Prints the value with no automatic newline
-- `debugPrint(<bool>)` prints `true` or `false`
-- `debugPrint(nothing)` prints `nothing`
-- `debugPrint()` behavior: Prints nothing
-- Arithmetic currently supports `+`, `-`, `*`, and `/` on integers only
-- Parentheses are supported in arithmetic expressions
-- Integer literals may be negative, for example `-5`
-- Variables are introduced with `let`, for example `let x = 1;`
-- Existing variables can be reassigned with `x = expression;`
-- Variables can be used anywhere expressions are allowed
-- Functions are declared with `fn`, for example `fn main() { ... }`
+- `debugPrint` prints with no automatic newline
+- Division is integer division
+- Reserved keywords cannot be used as identifiers
+- Blocks introduce scopes
+- `let` declares in the current scope only
+- Variable lookup and assignment search from innermost scope outward
+- Inner scopes may shadow outer variables
 
-## Invariants
+## Project Layout
 
-- For the program to run there must be a function called main. This is the entry point
-- Variables must be initialized when declared; bare declarations are not supported
-- Reassignment requires the variable to already exist
-- The interpreter takes exactly one source file path, with optional `--debug` flag for AST debug output
+- `src/main.cpp`: CLI entry point
+- `src/parse_into_ast.cpp`: grammar and parser actions
+- `src/pl_ast.h`: AST definitions
+- `src/tree_interpreter.cpp`: runtime interpreter
+- `src/helpers/debug_helpers.cpp`: AST debug printer
+- `tests/pass`, `tests/fail`: golden tests
+- `scripts`: test/debug scripts
 
-## Future Features
+## Docs
 
-- Garbage collector
-- JIT compiler
+- `docs/language_design.md`: future language direction
+- `docs/roadmap.md`: feature roadmap

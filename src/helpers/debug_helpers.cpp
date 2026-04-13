@@ -1,5 +1,6 @@
-#include <string>
+#include <format>
 #include <stdexcept>
+#include <string>
 #include <variant>
 
 #include "../pl_ast.h"
@@ -7,6 +8,10 @@
 #include "overloaded.h"
 
 namespace debug_helpers {
+  std::string Indentation(const size_t depth) {
+    return std::string(depth, '\t');
+  }
+
   std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
     switch (arithmetic_operator) {
       case pl_ast::ArithmeticOperator::ADD: return "+";
@@ -35,32 +40,43 @@ namespace debug_helpers {
     );
   }
 
-  // TODO: Far from complete. Needs dynamic return types, parameters, multi-function, etc... Quick solution
-  std::string ToString(const pl_ast::Program& program) {
-    std::string program_string = "fn " + program.function_.identifier_.name_ + "() {\n";
+  std::string ToString(const pl_ast::BlockPointer& block_pointer, const size_t depth) {
+    if (!block_pointer) {
+      throw std::runtime_error("ToString: null block pointer");
+    }
 
-    for (const auto& statement_variant : program.function_.statements_) {
+    std::string block_string;
+    for (const auto& statement_variant : block_pointer->statements_) {
       std::visit(
         template_helpers::Overloaded{
-          [&program_string](const pl_ast::DebugPrintStatement& debug_print_statement) {
-            program_string += "\tdebugPrint(";
+          [&block_string, depth](const pl_ast::DebugPrintStatement& debug_print_statement) {
+            block_string += Indentation(depth) + "debugPrint(";
             if (debug_print_statement.expression_) {
-              program_string += ToString(*debug_print_statement.expression_);
+              block_string += ToString(*debug_print_statement.expression_);
             }
-            program_string += ");\n";
+            block_string += ");\n";
           },
-          [&program_string](const pl_ast::LetStatement& let_statement) {
-            program_string += "\tlet " + let_statement.identifier_.name_ + " = " + ToString(let_statement.initializer_expression_) + ";\n";
+          [&block_string, depth](const pl_ast::LetStatement& let_statement) {
+            block_string += Indentation(depth) + "let " + let_statement.identifier_.name_ + " = "
+                            + ToString(let_statement.initializer_expression_) + ";\n";
           },
-          [&program_string](const pl_ast::AssignmentStatement& assignment_statement) {
-            program_string += "\t" + assignment_statement.identifier_.name_ + " = "
-                              + ToString(assignment_statement.assigned_expression_) + ";\n";
+          [&block_string, depth](const pl_ast::AssignmentStatement& assignment_statement) {
+            block_string += Indentation(depth) + assignment_statement.identifier_.name_ + " = "
+                            + ToString(assignment_statement.assigned_expression_) + ";\n";
           },
+          [&block_string, depth](const pl_ast::BlockPointer& nested_block_pointer) {
+            block_string += Indentation(depth) + "{\n";
+            block_string += ToString(nested_block_pointer, depth + 1);
+            block_string += Indentation(depth) + "}\n";
+          }
         },
         statement_variant
       );
     }
-    program_string += "}\n";
-    return program_string;
+    return block_string;
+  }
+
+  std::string ToString(const pl_ast::Program& program) {
+    return std::format("fn {}() {{\n{}}}\n", program.function_.identifier_.name_, ToString(program.function_.function_block_, 1));
   }
 } // namespace debug_helpers

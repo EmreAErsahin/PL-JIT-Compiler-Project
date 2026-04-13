@@ -61,11 +61,21 @@ namespace pl_ast {
     ExpressionVariant assigned_expression_;
   };
 
-  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement>;
+  // We need to add Blocks as a statement variant, so blocks can be nested
+  struct Block;
+  // Remember: cpp-peglib requires this to be a copyable type
+  using BlockPointer = std::shared_ptr<Block>;
+
+  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer>;
+
+  struct Block {
+    std::vector<StatementVariant> statements_;
+  };
 
   struct Function {
     Identifier identifier_;
-    std::vector<StatementVariant> statements_;
+    // Makes parsing actions more simple to store pointer here
+    BlockPointer function_block_;
   };
 
   // TODO: Change to a vector of functions once we allow multiple
