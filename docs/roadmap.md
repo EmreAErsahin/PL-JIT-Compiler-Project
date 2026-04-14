@@ -1,6 +1,5 @@
 # Roadmap (Somewhat in order)
 
-- Comparisons / Boolean / conditional expressions
 - `if / else`
 - `while`
 - `return`

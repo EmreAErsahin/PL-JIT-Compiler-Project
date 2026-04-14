@@ -1,0 +1,6 @@
+fn main() {
+    debugPrint(1 < 2);
+    debugPrint(2 <= 2);
+    debugPrint(3 > 2);
+    debugPrint(3 >= 3);
+}

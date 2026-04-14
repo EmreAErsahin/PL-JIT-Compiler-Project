@@ -14,13 +14,42 @@ namespace debug_helpers {
 
   std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
     switch (arithmetic_operator) {
-      case pl_ast::ArithmeticOperator::ADD: return "+";
-      case pl_ast::ArithmeticOperator::SUBTRACT: return "-";
-      case pl_ast::ArithmeticOperator::MULTIPLY: return "*";
-      case pl_ast::ArithmeticOperator::DIVIDE: return "/";
+      case pl_ast::ArithmeticOperator::kAdd: return "+";
+      case pl_ast::ArithmeticOperator::kSubtract: return "-";
+      case pl_ast::ArithmeticOperator::kMultiply: return "*";
+      case pl_ast::ArithmeticOperator::kDivide: return "/";
     }
 
     throw std::runtime_error("ToString: unsupported arithmetic operator");
+  }
+
+  std::string ToString(const pl_ast::RelationalOperator relational_operator) {
+    switch (relational_operator) {
+      case pl_ast::RelationalOperator::kLessThan: return "<";
+      case pl_ast::RelationalOperator::kLessThanOrEqual: return "<=";
+      case pl_ast::RelationalOperator::kGreaterThan: return ">";
+      case pl_ast::RelationalOperator::kGreaterThanOrEqual: return ">=";
+    }
+
+    throw std::runtime_error("ToString: unsupported relational operator");
+  }
+
+  std::string ToString(const pl_ast::EqualityOperator equality_operator) {
+    switch (equality_operator) {
+      case pl_ast::EqualityOperator::kEqual: return "==";
+      case pl_ast::EqualityOperator::kNotEqual: return "!=";
+    }
+
+    throw std::runtime_error("ToString: unsupported equality operator");
+  }
+
+  std::string ToString(const pl_ast::LogicalOperator logical_operator) {
+    switch (logical_operator) {
+      case pl_ast::LogicalOperator::kAnd: return "&&";
+      case pl_ast::LogicalOperator::kOr: return "||";
+    }
+
+    throw std::runtime_error("ToString: unsupported logical operator");
   }
 
   std::string ToString(const pl_ast::ExpressionVariant& expression_variant) {
@@ -30,9 +59,21 @@ namespace debug_helpers {
         [](const pl_ast::BoolLiteralExpression& bool_expression) -> std::string { return bool_expression.value_ ? "true" : "false"; },
         [](const pl_ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
         [](const pl_ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
-        [](const pl_ast::BinaryExpression& binary_expression) -> std::string {
-          return "(" + ToString(*binary_expression.left_operand_) + " " + ToString(binary_expression.operator_) + " "
-                 + ToString(*binary_expression.right_operand_) + ")";
+        [](const pl_ast::ArithmeticExpression& arithmetic_expression) -> std::string {
+          return "(" + ToString(*arithmetic_expression.left_operand_) + " " + ToString(arithmetic_expression.operator_) + " "
+                 + ToString(*arithmetic_expression.right_operand_) + ")";
+        },
+        [](const pl_ast::RelationalExpression& relational_expression) -> std::string {
+          return "(" + ToString(*relational_expression.left_operand_) + " " + ToString(relational_expression.operator_) + " "
+                 + ToString(*relational_expression.right_operand_) + ")";
+        },
+        [](const pl_ast::EqualityExpression& equality_expression) -> std::string {
+          return "(" + ToString(*equality_expression.left_operand_) + " " + ToString(equality_expression.operator_) + " "
+                 + ToString(*equality_expression.right_operand_) + ")";
+        },
+        [](const pl_ast::LogicalExpression& logical_expression) -> std::string {
+          return "(" + ToString(*logical_expression.left_operand_) + " " + ToString(logical_expression.operator_) + " "
+                 + ToString(*logical_expression.right_operand_) + ")";
         },
         [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
