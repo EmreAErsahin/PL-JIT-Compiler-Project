@@ -1,1 +1,1 @@
-RequireAndGetInteger: arithmetic requires integer operands
+EvaluateBothOperandsAsIntegers: operation requires integer operands

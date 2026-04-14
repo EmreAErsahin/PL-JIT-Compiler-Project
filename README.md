@@ -12,6 +12,9 @@ Small C++23 interpreter project for a custom language. The current implementatio
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
 - Arithmetic `+`, `-`, `*`, `/` on integers only
+- Relational `<`, `>`, `<=`, `>=` on integers only
+- Equality `==`, `!=` across all current runtime value types
+- Logical `&&`, `||` with short-circuit evaluation
 - Parenthesized expressions
 - Nested `{ ... }` blocks
 - Lexical block scopes with shadowing
@@ -20,8 +23,9 @@ Small C++23 interpreter project for a custom language. The current implementatio
 ## Current Limitations
 
 - `Program` stores exactly one function
-- No comparisons, `if`, `while`, `return`, params, or function calls
+- No `if`, `while`, `return`, params, or function calls
 - Arithmetic on non-integers is a runtime error
+- Relational operators on non-integers are a runtime error
 - Division by zero is a runtime error
 - Errors are surfaced as `std::runtime_error` messages written to stderr
 
@@ -70,10 +74,10 @@ DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
 LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
 AssignmentStatement        <- Identifier '=' Expression ';'
 
-Expression                 <- InfixExpression(Atom, ArithmeticOperator)
+Expression                 <- InfixExpression(Atom, InfixOperator)
 Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
 IdentifierExpression       <- Identifier
-ArithmeticOperator         <- < [-+/*] >
+InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
 Bool                       <- ~KeywordTrue / ~KeywordFalse
 Nothing                    <- ~KeywordNothing
 
@@ -83,6 +87,10 @@ Integer                    <- < '-'? [0-9]+ >
 
 InfixExpression(A, O)      <- A (O A)* {
   precedence
+    L ||
+    L &&
+    L == !=
+    L < <= > >=
     L + -
     L * /
 }
@@ -103,6 +111,9 @@ LineComment                <- '//' (!End .)* &End
 - `let` declares in the current scope only
 - Variable lookup and assignment search from innermost scope outward
 - Inner scopes may shadow outer variables
+- `==` and `!=` are valid across all current runtime value types; cross-type equality evaluates to `false`
+- `&&` and `||` short-circuit and return booleans
+- Logical truthiness currently treats `false`, `nothing`, and `0` as falsy; nonzero integers and `true` are truthy
 
 ## Project Layout
 

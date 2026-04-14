@@ -19,7 +19,13 @@ namespace pl_ast {
 
   struct NothingLiteralExpression {};
 
-  enum class ArithmeticOperator { ADD, SUBTRACT, MULTIPLY, DIVIDE };
+  enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide };
+
+  enum class RelationalOperator { kLessThan, kLessThanOrEqual, kGreaterThan, kGreaterThanOrEqual };
+
+  enum class EqualityOperator { kEqual, kNotEqual };
+
+  enum class LogicalOperator { kAnd, kOr };
 
   // Variables, function names
   struct Identifier {
@@ -30,19 +36,42 @@ namespace pl_ast {
     Identifier identifier_;
   };
 
-  // Forward declaration bc of circular dependency with BinaryExpression & ExpressionVariant
-  struct BinaryExpression;
+  // clang-format off
+  struct ArithmeticExpression;
+  struct RelationalExpression;
+  struct EqualityExpression;
+  struct LogicalExpression;
+  // clang-format on
 
-  using ExpressionVariant =
-    std::variant<IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, BinaryExpression, IdentifierExpression>;
+  using ExpressionVariant = std::variant<
+    IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, IdentifierExpression, ArithmeticExpression,
+    RelationalExpression, EqualityExpression, LogicalExpression>;
 
   // TODO: Try to find a better alternative for shared ptr. Shared ownership is awkward bc only the AST needs
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
   using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
-  struct BinaryExpression {
+  struct ArithmeticExpression {
     ExpressionPointer left_operand_;
     ArithmeticOperator operator_;
+    ExpressionPointer right_operand_;
+  };
+
+  struct RelationalExpression {
+    ExpressionPointer left_operand_;
+    RelationalOperator operator_;
+    ExpressionPointer right_operand_;
+  };
+
+  struct EqualityExpression {
+    ExpressionPointer left_operand_;
+    EqualityOperator operator_;
+    ExpressionPointer right_operand_;
+  };
+
+  struct LogicalExpression {
+    ExpressionPointer left_operand_;
+    LogicalOperator operator_;
     ExpressionPointer right_operand_;
   };
 
@@ -50,7 +79,7 @@ namespace pl_ast {
     std::optional<ExpressionVariant> expression_;
   };
 
-  // Variable bindings are introduced with an initializer expression; bare declarations are not supported.
+  // Bare declarations are not supported
   struct LetStatement {
     Identifier identifier_;
     ExpressionVariant initializer_expression_;

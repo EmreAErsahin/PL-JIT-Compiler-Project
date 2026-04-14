@@ -1,0 +1,4 @@
+fn main() {
+    debugPrint(true || (1 / 0));
+    debugPrint(1 || (1 / 0));
+}

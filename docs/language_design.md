@@ -46,9 +46,16 @@ Later candidates:
 
 - Integer division while only integers exist
 - Blocks introduce lexical scopes
-- The likely truthiness rule is:
-  - falsy: `false`, `nothing`
-  - truthy: everything else, including `0`
+
+Current implemented expression semantics:
+
+- Arithmetic operators require integer operands
+- Relational operators require integer operands and produce booleans
+- Equality operators are valid across all current runtime value types
+- Logical operators short-circuit and produce booleans
+- Current truthiness rule:
+  - falsy: `false`, `nothing`, `0`
+  - truthy: `true`, nonzero integers
 
 ## Embedding Direction
 
@@ -93,7 +100,9 @@ IfStmt         <- 'if' Expr Block ('else' (IfStmt / Block))?
 WhileStmt      <- 'while' Expr Block
 ExprStmt       <- Expr ';'
 
-Expr           <- Equality
+Expr           <- LogicalOr
+LogicalOr      <- LogicalAnd ('||' LogicalAnd)*
+LogicalAnd     <- Equality ('&&' Equality)*
 Equality       <- Comparison (('==' / '!=') Comparison)*
 Comparison     <- Addition (('<=' / '>=' / '<' / '>') Addition)*
 Addition       <- Multiplication (('+' / '-') Multiplication)*

@@ -1,0 +1,7 @@
+fn main() {
+    debugPrint(1 == 1);
+    debugPrint(1 == true);
+    debugPrint(1 != true);
+    debugPrint(nothing == false);
+    debugPrint(nothing == nothing);
+}

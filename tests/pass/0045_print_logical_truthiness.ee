@@ -1,0 +1,5 @@
+fn main() {
+    debugPrint(1 && true);
+    debugPrint(0 || true);
+    debugPrint(nothing || false);
+}
