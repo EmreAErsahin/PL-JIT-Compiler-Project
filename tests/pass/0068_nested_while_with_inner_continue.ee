@@ -1,0 +1,15 @@
+fn main() {
+    let outer = 0;
+    while (outer < 2) {
+        outer = outer + 1;
+        let inner = 0;
+        while (inner < 3) {
+            inner = inner + 1;
+            if (inner == 2) {
+                continue;
+            }
+            debugPrint(inner);
+        }
+        debugPrint(outer);
+    }
+}

@@ -1,0 +1,7 @@
+fn main() {
+    let i = 2;
+    while (i) {
+        debugPrint(i);
+        i = i - 1;
+    }
+}

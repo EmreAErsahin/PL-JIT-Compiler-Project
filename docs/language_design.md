@@ -54,6 +54,7 @@ Current implemented expression semantics:
 - Equality operators are valid across all current runtime value types
 - Logical operators short-circuit and produce booleans
 - `if` conditions use the same truthiness rules as logical operators
+- `while` conditions use the same truthiness rules as logical operators
 - Current truthiness rule:
   - falsy: `false`, `nothing`, `0`
   - truthy: `true`, nonzero integers
@@ -63,6 +64,9 @@ Current implemented control flow:
 - `if`
 - `else if`
 - `else`
+- `while`
+- `break`
+- `continue`
 
 ## Embedding Direction
 

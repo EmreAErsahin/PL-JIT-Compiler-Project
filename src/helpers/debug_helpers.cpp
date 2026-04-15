@@ -124,6 +124,13 @@ namespace debug_helpers {
 
             block_string += "\n";
           },
+          [&block_string, depth](const pl_ast::WhileStatement& while_statement) {
+            block_string += Indentation(depth) + "while " + ToString(while_statement.while_condition_) + " {\n";
+            block_string += ToString(while_statement.while_block_, depth + 1);
+            block_string += Indentation(depth) + "}\n";
+          },
+          [&block_string, depth](const pl_ast::ContinueStatement&) { block_string += Indentation(depth) + "continue;\n"; },
+          [&block_string, depth](const pl_ast::BreakStatement&) { block_string += Indentation(depth) + "break;\n"; },
           [&block_string, depth](const pl_ast::BlockPointer& nested_block_pointer) {
             block_string += Indentation(depth) + "{\n";
             block_string += ToString(nested_block_pointer, depth + 1);

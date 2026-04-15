@@ -105,7 +105,17 @@ namespace pl_ast {
     std::optional<BlockPointer> else_block_;
   };
 
-  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement>;
+  struct WhileStatement {
+    ExpressionVariant while_condition_;
+    BlockPointer while_block_;
+  };
+
+  struct ContinueStatement {};
+
+  struct BreakStatement {};
+
+  using StatementVariant = std::variant<
+    DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ContinueStatement, BreakStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;
@@ -117,7 +127,6 @@ namespace pl_ast {
     BlockPointer function_block_;
   };
 
-  // TODO: Change to a vector of functions once we allow multiple
   struct Program {
     Function function_;
   };

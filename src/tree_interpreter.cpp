@@ -205,49 +205,66 @@ namespace tree_interpreter {
       expression_variant
     );
   }
+  enum class ExecutionState { kNormal, kContinue, kBreak };
 
-  void ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer);
+  ExecutionState ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer);
 
-  void ExecuteStatement(RuntimeState& runtime_state, const pl_ast::StatementVariant& statement_variant) {
-    std::visit(
+  ExecutionState ExecuteStatement(RuntimeState& runtime_state, const pl_ast::StatementVariant& statement_variant) {
+    return std::visit(
       template_helpers::Overloaded{
         [&runtime_state](const pl_ast::DebugPrintStatement& debug_print_statement) {
           if (debug_print_statement.expression_) {
             DebugPrintValue(EvaluateExpression(runtime_state, *debug_print_statement.expression_));
           }
+          return ExecutionState::kNormal;
         },
         [&runtime_state](const pl_ast::LetStatement& let_statement) {
           const auto& variable_name = let_statement.identifier_.name_;
           DeclareVariable(runtime_state, variable_name, EvaluateExpression(runtime_state, let_statement.initializer_expression_));
+          return ExecutionState::kNormal;
         },
         [&runtime_state](const pl_ast::AssignmentStatement& assignment_statement) {
           const auto& variable_name = assignment_statement.identifier_.name_;
           AssignVariable(runtime_state, variable_name, EvaluateExpression(runtime_state, assignment_statement.assigned_expression_));
+          return ExecutionState::kNormal;
         },
         [&runtime_state](const pl_ast::IfStatement& if_statement) {
           if (IsTruthy(EvaluateExpression(runtime_state, if_statement.if_condition_))) {
-            ExecuteBlock(runtime_state, if_statement.if_block_);
-            return;
+            return ExecuteBlock(runtime_state, if_statement.if_block_);
           }
 
           for (const auto& [else_if_condition, else_if_block] : if_statement.else_if_branches_) {
             if (IsTruthy(EvaluateExpression(runtime_state, else_if_condition))) {
-              ExecuteBlock(runtime_state, else_if_block);
-              return;
+              return ExecuteBlock(runtime_state, else_if_block);
             }
           }
 
           if (if_statement.else_block_) {
-            ExecuteBlock(runtime_state, *if_statement.else_block_);
+            return ExecuteBlock(runtime_state, *if_statement.else_block_);
           }
+          return ExecutionState::kNormal;
         },
-        [&runtime_state](const pl_ast::BlockPointer& block_pointer) { ExecuteBlock(runtime_state, block_pointer); },
+        [&runtime_state](const pl_ast::WhileStatement& while_statement) {
+          while (IsTruthy(EvaluateExpression(runtime_state, while_statement.while_condition_))) {
+            const auto execution_state = ExecuteBlock(runtime_state, while_statement.while_block_);
+
+            if (execution_state == ExecutionState::kContinue) {
+              continue;
+            } else if (execution_state == ExecutionState::kBreak) {
+              break;
+            }
+          }
+          return ExecutionState::kNormal;
+        },
+        [](const pl_ast::ContinueStatement&) { return ExecutionState::kContinue; },
+        [](const pl_ast::BreakStatement&) { return ExecutionState::kBreak; },
+        [&runtime_state](const pl_ast::BlockPointer& block_pointer) { return ExecuteBlock(runtime_state, block_pointer); },
       },
       statement_variant
     );
   }
 
-  void ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer) {
+  ExecutionState ExecuteBlock(RuntimeState& runtime_state, const pl_ast::BlockPointer& block_pointer) {
     if (!block_pointer) {
       throw std::runtime_error("ExecuteBlock: null block pointer");
     }
@@ -255,12 +272,19 @@ namespace tree_interpreter {
     // Entering new scope
     runtime_state.scopes_.emplace_back();
 
+    auto status = ExecutionState::kNormal;
+    // Stop executing the block as soon as break/continue needs to bubble up
     for (const auto& statement_variant : block_pointer->statements_) {
-      ExecuteStatement(runtime_state, statement_variant);
+      status = ExecuteStatement(runtime_state, statement_variant);
+      if (status != ExecutionState::kNormal) {
+        break;
+      }
     }
 
     // Leaving scope
     runtime_state.scopes_.pop_back();
+
+    return status;
   }
 
   void ExecuteAstWithTreeInterpreter(const pl_ast::Program& program) {
@@ -275,6 +299,12 @@ namespace tree_interpreter {
     }
 
     RuntimeState runtime_state;
-    ExecuteBlock(runtime_state, main_function->function_block_);
+    const ExecutionState execution_state = ExecuteBlock(runtime_state, main_function->function_block_);
+    if (execution_state == ExecutionState::kContinue) {
+      throw std::runtime_error("ExecuteAstWithTreeInterpreter: continue statement not within a loop");
+    }
+    if (execution_state == ExecutionState::kBreak) {
+      throw std::runtime_error("ExecuteAstWithTreeInterpreter: break statement not within a loop");
+    }
   }
 } // namespace tree_interpreter
