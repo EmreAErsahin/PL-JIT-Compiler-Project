@@ -1,0 +1,11 @@
+fn main() {
+    if (true) {
+        if (false) {
+            debugPrint(1);
+        } else {
+            debugPrint(2);
+        }
+    } else {
+        debugPrint(3);
+    }
+}

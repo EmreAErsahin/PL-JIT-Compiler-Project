@@ -81,22 +81,25 @@ namespace parse_into_ast {
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
       KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
+      KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
+      KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
       KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
       KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
       KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
-      Block <- '{' Statement* '}'
+      Block                      <- '{' Statement* '}'
       Function                   <- ~KeywordFn Identifier '(' ')' Block
-      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement
+      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement
       DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
+      IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
       Expression                 <- InfixExpression(Atom, InfixOperator)
       Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
       IdentifierExpression       <- Identifier
       InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
-      Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
+      Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordIf !KeywordElse !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Integer                    <- < '-'? [0-9]+ >
       InfixExpression(A, O)      <- A (O A)* {
@@ -211,6 +214,37 @@ namespace parse_into_ast {
                                     .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
                                     .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
                                     }
+      };
+    };
+
+    parser["IfStatement"] = [](const peg::SemanticValues& semantic_values) {
+      // First two semantic values are if, last one is else if it's present, everything in the middle is else ifs
+      auto if_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      auto if_block = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 1);
+
+      pl_ast::ElseIfConditionBlockPairs else_if_branches;
+      // Semantic values are: if condition, if block, zero or more else-if condition/block pairs,
+      // and an optional trailing else block.
+      const size_t number_of_else_if_branches = (semantic_values.size() - 2) / 2;
+      for (size_t current_branch = 1; current_branch <= number_of_else_if_branches; ++current_branch) {
+        else_if_branches.emplace_back(
+          CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, current_branch * 2),
+          CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, current_branch * 2 + 1)
+        );
+      }
+
+      std::optional<pl_ast::BlockPointer> else_block;
+      if (semantic_values.size() % 2) {
+        else_block = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, semantic_values.size() - 1);
+      }
+
+      return pl_ast::StatementVariant{
+        pl_ast::IfStatement{
+                            .if_condition_ = std::move(if_condition),
+                            .if_block_ = std::move(if_block),
+                            .else_if_branches_ = std::move(else_if_branches),
+                            .else_block_ = std::move(else_block),
+                            }
       };
     };
 

@@ -1,0 +1,48 @@
+fn main() {
+    // literals and declarations
+    let x = 6;
+    let y = 2;
+    let flag = false;
+    let value = nothing;
+
+    // debugPrint with no argument prints nothing
+    debugPrint();
+    debugPrint((x + y) * (x - y));
+    debugPrint(x > y);
+    debugPrint(x == y);
+    debugPrint(value == nothing);
+
+    if ((x > y) && (flag || 1)) {
+        debugPrint(1);
+    } else {
+        debugPrint(0);
+    }
+
+    {
+        let x = 0;
+        debugPrint(x);
+
+        if (x) {
+            debugPrint(9);
+        } else if (nothing) {
+            debugPrint(8);
+        } else {
+            debugPrint(7);
+        }
+    }
+
+    y = x / 3;
+    debugPrint(y);
+
+    if (flag) {
+        debugPrint(4);
+    } else if (y != 2) {
+        debugPrint(5);
+    } else {
+        debugPrint(6);
+    }
+
+    flag = true;
+    debugPrint(flag && (y >= 2));
+    debugPrint((0 || flag) && (nothing || true));
+}

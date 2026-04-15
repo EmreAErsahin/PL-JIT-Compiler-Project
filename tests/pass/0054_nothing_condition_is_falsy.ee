@@ -1,0 +1,7 @@
+fn main() {
+    if (nothing) {
+        debugPrint(1);
+    } else {
+        debugPrint(2);
+    }
+}
