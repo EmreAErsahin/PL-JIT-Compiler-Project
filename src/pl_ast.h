@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -95,7 +96,16 @@ namespace pl_ast {
   // Remember: cpp-peglib requires this to be a copyable type
   using BlockPointer = std::shared_ptr<Block>;
 
-  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer>;
+  using ElseIfConditionBlockPairs = std::vector<std::pair<ExpressionVariant, BlockPointer>>;
+
+  struct IfStatement {
+    ExpressionVariant if_condition_;
+    BlockPointer if_block_;
+    ElseIfConditionBlockPairs else_if_branches_;
+    std::optional<BlockPointer> else_block_;
+  };
+
+  using StatementVariant = std::variant<DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;

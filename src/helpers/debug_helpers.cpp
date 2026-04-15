@@ -105,6 +105,25 @@ namespace debug_helpers {
             block_string += Indentation(depth) + assignment_statement.identifier_.name_ + " = "
                             + ToString(assignment_statement.assigned_expression_) + ";\n";
           },
+          [&block_string, depth](const pl_ast::IfStatement& if_statement) {
+            block_string += Indentation(depth) + "if " + ToString(if_statement.if_condition_) + " {\n";
+            block_string += ToString(if_statement.if_block_, depth + 1);
+            block_string += Indentation(depth) + "}";
+
+            for (const auto& [else_if_condition, else_if_block] : if_statement.else_if_branches_) {
+              block_string += " else if " + ToString(else_if_condition) + " {\n";
+              block_string += ToString(else_if_block, depth + 1);
+              block_string += Indentation(depth) + "}";
+            }
+
+            if (if_statement.else_block_) {
+              block_string += " else {\n";
+              block_string += ToString(*if_statement.else_block_, depth + 1);
+              block_string += Indentation(depth) + "}";
+            }
+
+            block_string += "\n";
+          },
           [&block_string, depth](const pl_ast::BlockPointer& nested_block_pointer) {
             block_string += Indentation(depth) + "{\n";
             block_string += ToString(nested_block_pointer, depth + 1);

@@ -1,6 +1,5 @@
 # Roadmap (Somewhat in order)
 
-- `if / else`
 - `while`
 - `return`
 - Multiple functions

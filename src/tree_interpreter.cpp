@@ -224,6 +224,23 @@ namespace tree_interpreter {
           const auto& variable_name = assignment_statement.identifier_.name_;
           AssignVariable(runtime_state, variable_name, EvaluateExpression(runtime_state, assignment_statement.assigned_expression_));
         },
+        [&runtime_state](const pl_ast::IfStatement& if_statement) {
+          if (IsTruthy(EvaluateExpression(runtime_state, if_statement.if_condition_))) {
+            ExecuteBlock(runtime_state, if_statement.if_block_);
+            return;
+          }
+
+          for (const auto& [else_if_condition, else_if_block] : if_statement.else_if_branches_) {
+            if (IsTruthy(EvaluateExpression(runtime_state, else_if_condition))) {
+              ExecuteBlock(runtime_state, else_if_block);
+              return;
+            }
+          }
+
+          if (if_statement.else_block_) {
+            ExecuteBlock(runtime_state, *if_statement.else_block_);
+          }
+        },
         [&runtime_state](const pl_ast::BlockPointer& block_pointer) { ExecuteBlock(runtime_state, block_pointer); },
       },
       statement_variant

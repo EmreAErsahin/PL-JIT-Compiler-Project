@@ -1,0 +1,5 @@
+fn main() {
+    if (missing) {
+        debugPrint(1);
+    }
+}
