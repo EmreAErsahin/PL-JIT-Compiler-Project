@@ -10,7 +10,7 @@
 #include "tree_interpreter.h"
 
 int main(const int argc, char** argv) {
-  // All options user can pass in
+  // Handling options that are passed in by user (--debug)
   bool debug = false;
 
   std::filesystem::path source_path;
@@ -29,6 +29,7 @@ int main(const int argc, char** argv) {
     return 1;
   }
 
+  // Execution of source code begins here
   try {
     const std::string file_contents = io_helpers::ReadFile(source_path);
 

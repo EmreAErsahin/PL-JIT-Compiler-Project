@@ -1,0 +1,13 @@
+fn main() {
+    let outer = 0;
+    while (outer < 2) {
+        outer = outer + 1;
+        let inner = 0;
+        while (true) {
+            inner = inner + 1;
+            debugPrint(inner);
+            break;
+        }
+        debugPrint(outer);
+    }
+}

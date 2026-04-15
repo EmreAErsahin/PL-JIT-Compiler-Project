@@ -1,6 +1,5 @@
 # Roadmap (Somewhat in order)
 
-- `while`
 - `return`
 - Multiple functions
 - Parameters

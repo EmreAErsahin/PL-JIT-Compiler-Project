@@ -1,0 +1,6 @@
+fn main() {
+    while (false) {
+        debugPrint(1);
+    }
+    debugPrint(2);
+}

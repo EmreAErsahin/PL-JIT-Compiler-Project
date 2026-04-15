@@ -16,6 +16,9 @@ Small C++23 interpreter project for a custom language. The current implementatio
 - Equality `==`, `!=` across all current runtime value types
 - Logical `&&`, `||` with short-circuit evaluation
 - `if`, `else if`, `else`
+- `while`
+- `break`
+- `continue`
 - Parenthesized expressions
 - Nested `{ ... }` blocks
 - Lexical block scopes with shadowing
@@ -24,7 +27,7 @@ Small C++23 interpreter project for a custom language. The current implementatio
 ## Current Limitations
 
 - `Program` stores exactly one function
-- No `while`, `return`, params, or function calls
+- No `return`, params, or function calls
 - Arithmetic on non-integers is a runtime error
 - Relational operators on non-integers are a runtime error
 - Division by zero is a runtime error
@@ -66,17 +69,23 @@ KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
 KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
 KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
 KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
+KeywordWhile               <- < 'while' ![a-zA-Z0-9_] >
+KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
+KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
 KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
 KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
 KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
 
 Block                      <- '{' Statement* '}'
 Function                   <- ~KeywordFn Identifier '(' ')' Block
-Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement
+Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement
 DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
 LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
 AssignmentStatement        <- Identifier '=' Expression ';'
 IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
+WhileStatement             <- ~KeywordWhile Expression Block
+ContinueStatement          <- ~KeywordContinue ';'
+BreakStatement             <- ~KeywordBreak ';'
 
 Expression                 <- InfixExpression(Atom, InfixOperator)
 Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
@@ -85,7 +94,7 @@ InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / 
 Bool                       <- ~KeywordTrue / ~KeywordFalse
 Nothing                    <- ~KeywordNothing
 
-Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordIf !KeywordElse !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
+Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordIf !KeywordElse !KeywordWhile !KeywordContinue !KeywordBreak !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
 IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
 Integer                    <- < '-'? [0-9]+ >
 
@@ -110,7 +119,7 @@ LineComment                <- '//' (!End .)* &End
 
 - `debugPrint` prints with no automatic newline
 - Division is integer division
-- Reserved keywords cannot be used as identifiers: `fn`, `let`, `debugPrint`, `if`, `else`, `true`, `false`, `nothing`
+- Reserved keywords cannot be used as identifiers: `fn`, `let`, `debugPrint`, `if`, `else`, `while`, `continue`, `break`, `true`, `false`, `nothing`
 - Blocks introduce scopes
 - `if` conditions use the same truthiness rules as logical operators
 - `let` declares in the current scope only
@@ -120,6 +129,10 @@ LineComment                <- '//' (!End .)* &End
 - `&&` and `||` short-circuit and return booleans
 - Logical truthiness currently treats `false`, `nothing`, and `0` as falsy; nonzero integers and `true` are truthy
 - `if` / `else if` / `else` execute the first truthy branch only
+- `while` uses the same truthiness rules as `if` and logical operators
+- `break` exits the nearest enclosing loop
+- `continue` skips the rest of the current loop iteration and reevaluates the loop condition
+- `break` and `continue` outside a loop are runtime errors
 
 ## Project Layout
 
