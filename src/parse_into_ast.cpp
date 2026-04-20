@@ -21,6 +21,19 @@ namespace parse_into_ast {
     return std::any_cast<T>(semantic_values[index]);
   }
 
+  template <typename ExpressionNode, typename Operator>
+  pl_ast::ExpressionVariant MakeBinaryExpression(
+    pl_ast::ExpressionVariant left_operand, const Operator operator_value, pl_ast::ExpressionVariant right_operand
+  ) {
+    return pl_ast::ExpressionVariant{
+      ExpressionNode{
+        .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
+        .operator_ = operator_value,
+        .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
+        }
+    };
+  }
+
   peg::parser MakeParser() {
     peg::parser parser;
 
@@ -32,6 +45,7 @@ namespace parse_into_ast {
     // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
     constexpr auto pl_grammar = R"(
       Program                    <- Function
+      Keyword                    <- KeywordFn / KeywordLet / KeywordDebugPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
       KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
@@ -41,16 +55,19 @@ namespace parse_into_ast {
       KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
       KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
       KeywordWhile               <- < 'while' ![a-zA-Z0-9_] >
+      KeywordFor                 <- < 'for' ![a-zA-Z0-9_] >
       KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
       Block                      <- '{' Statement* '}'
       Function                   <- ~KeywordFn Identifier '(' ')' Block
-      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement
+      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement
       DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
       IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
       WhileStatement             <- ~KeywordWhile Expression Block
+      ForStatement               <- ~KeywordFor LetStatement Expression ';' ForUpdate Block
+      ForUpdate                  <- Identifier '=' Expression
       ContinueStatement          <- ~KeywordContinue ';'
       BreakStatement             <- ~KeywordBreak ';'
       Expression                 <- InfixExpression(Atom, InfixOperator)
@@ -59,7 +76,7 @@ namespace parse_into_ast {
       InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
-      Identifier                 <- !KeywordFn !KeywordLet !KeywordDebugPrint !KeywordIf !KeywordElse !KeywordWhile !KeywordContinue !KeywordBreak !KeywordTrue !KeywordFalse !KeywordNothing IdentifierToken
+      Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Integer                    <- < '-'? [0-9]+ >
       InfixExpression(A, O)      <- A (O A)* {
@@ -149,40 +166,19 @@ namespace parse_into_ast {
       auto right_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2);
 
       return std::visit(
-        [&left_operand, &right_operand]<typename Operator>(const Operator operator_value) -> pl_ast::ExpressionVariant {
-          if constexpr (std::same_as<Operator, pl_ast::ArithmeticOperator>) {
-            return pl_ast::ExpressionVariant{
-              pl_ast::ArithmeticExpression{
-                                           .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
-                                           .operator_ = operator_value,
-                                           .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-                                           }
-            };
-          } else if constexpr (std::same_as<Operator, pl_ast::RelationalOperator>) {
-            return pl_ast::ExpressionVariant{
-              pl_ast::RelationalExpression{
-                                           .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
-                                           .operator_ = operator_value,
-                                           .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-                                           }
-            };
-          } else if constexpr (std::same_as<Operator, pl_ast::EqualityOperator>) {
-            return pl_ast::ExpressionVariant{
-              pl_ast::EqualityExpression{
-                                         .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
-                                         .operator_ = operator_value,
-                                         .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-                                         }
-            };
-          } else {
-            return pl_ast::ExpressionVariant{
-              pl_ast::LogicalExpression{
-                                        .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
-                                        .operator_ = operator_value,
-                                        .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-                                        }
-            };
-          }
+        template_helpers::Overloaded{
+          [&left_operand, &right_operand](const pl_ast::ArithmeticOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::ArithmeticExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::RelationalOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::RelationalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::EqualityOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::EqualityExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::LogicalOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::LogicalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
         },
         infix_operator
       );
@@ -217,7 +213,7 @@ namespace parse_into_ast {
     parser["IfStatement"] = [](const peg::SemanticValues& semantic_values) {
       // First two semantic values are if, last one is else if it's present, everything in the middle is else ifs
       auto if_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-      auto if_block = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 1);
+      auto if_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1));
 
       pl_ast::ElseIfConditionBlockPairs else_if_branches;
       // Semantic values are: if condition, if block, zero or more else-if condition/block pairs,
@@ -226,13 +222,14 @@ namespace parse_into_ast {
       for (size_t current_branch = 1; current_branch <= number_of_else_if_branches; ++current_branch) {
         else_if_branches.emplace_back(
           CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, current_branch * 2),
-          CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, current_branch * 2 + 1)
+          std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, current_branch * 2 + 1))
         );
       }
 
       std::optional<pl_ast::BlockPointer> else_block;
       if (semantic_values.size() % 2) {
-        else_block = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, semantic_values.size() - 1);
+        else_block =
+          std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_values.size() - 1));
       }
 
       return pl_ast::StatementVariant{
@@ -247,10 +244,36 @@ namespace parse_into_ast {
 
     parser["WhileStatement"] = [](const peg::SemanticValues& semantic_values) {
       auto while_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-      auto while_block = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 1);
+      auto while_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1));
 
       return pl_ast::StatementVariant{
         pl_ast::WhileStatement{.while_condition_ = std::move(while_condition), .while_block_ = std::move(while_block)}
+      };
+    };
+
+    parser["ForStatement"] = [](const peg::SemanticValues& semantic_values) {
+      // Statements are all held as statement variant, so we cant any cast straight to let statement / assignment statement
+      auto initializer = std::get<pl_ast::LetStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0));
+      auto condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1);
+      auto update = std::get<pl_ast::AssignmentStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 2));
+      auto for_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 3));
+
+      return pl_ast::StatementVariant{
+        pl_ast::ForStatement{
+                             .initializer_ = std::move(initializer),
+                             .condition_ = std::move(condition),
+                             .update_ = std::move(update),
+                             .for_block_ = std::move(for_block)
+        }
+      };
+    };
+
+    parser["ForUpdate"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{
+        pl_ast::AssignmentStatement{
+                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
+                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
+                                    }
       };
     };
 
@@ -259,11 +282,6 @@ namespace parse_into_ast {
     parser["BreakStatement"] = [](const peg::SemanticValues&) { return pl_ast::StatementVariant{pl_ast::BreakStatement{}}; };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
-      // Checking if we have a block pointer (needs special cast bc we store it as a block ptr bc it may need to be put into a function)
-      // TODO: Don't love the use of .choice this is brittle. Changing peg can break this action
-      if (semantic_values.choice() == 0) {
-        return pl_ast::StatementVariant{CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 0)};
-      }
       return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
     };
 
@@ -275,14 +293,14 @@ namespace parse_into_ast {
         statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
       }
 
-      return std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)});
+      return pl_ast::StatementVariant{std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)})};
     };
 
     // Using designated initializers for clarity & safety against changing field positions
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::Function{
         .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
-        .function_block_ = CastSemanticValueTo<pl_ast::BlockPointer>(semantic_values, 1),
+        .function_block_ = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1)),
       };
     };
 
