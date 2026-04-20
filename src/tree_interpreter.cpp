@@ -24,19 +24,35 @@ namespace tree_interpreter {
     std::vector<Scope> scopes_;
   };
 
+  // Using RAII to add/delete scopes on creation of object / exit of scope
+  struct ScopeGuard {
+    explicit ScopeGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) { runtime_state_.scopes_.emplace_back(); }
+
+    ~ScopeGuard() { runtime_state_.scopes_.pop_back(); }
+
+    // Need to delete copy/move constructors to ensure we add/delete scopes properly
+    ScopeGuard(const ScopeGuard&) = delete;
+    ScopeGuard& operator=(const ScopeGuard&) = delete;
+    ScopeGuard(ScopeGuard&&) = delete;
+    ScopeGuard& operator=(ScopeGuard&&) = delete;
+    
+   private:
+    RuntimeState& runtime_state_;
+  };
+
   Value EvaluateExpression(const RuntimeState& runtime_state, const pl_ast::ExpressionVariant& expression_variant);
 
   //
   // Runtime helpers
   //
   std::pair<Value, Value> EvaluateBothOperands(
-    const RuntimeState& runtime_state, const pl_ast::ExpressionPointer& left_operand, const pl_ast::ExpressionPointer& right_operand
+    const RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand
   ) {
     return {EvaluateExpression(runtime_state, *left_operand), EvaluateExpression(runtime_state, *right_operand)};
   }
 
   std::pair<int64_t, int64_t> EvaluateBothOperandsAsIntegers(
-    const RuntimeState& runtime_state, const pl_ast::ExpressionPointer& left_operand, const pl_ast::ExpressionPointer& right_operand
+    const RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand
   ) {
     const auto [left_value, right_value] = EvaluateBothOperands(runtime_state, left_operand, right_operand);
 
@@ -248,11 +264,25 @@ namespace tree_interpreter {
           while (IsTruthy(EvaluateExpression(runtime_state, while_statement.while_condition_))) {
             const auto execution_state = ExecuteBlock(runtime_state, while_statement.while_block_);
 
-            if (execution_state == ExecutionState::kContinue) {
-              continue;
-            } else if (execution_state == ExecutionState::kBreak) {
+            if (execution_state == ExecutionState::kBreak) {
               break;
             }
+          }
+          return ExecutionState::kNormal;
+        },
+        [&runtime_state](const pl_ast::ForStatement& for_statement) {
+          // Must add scope for initializer variable (needs to live past loop iterations)
+          ScopeGuard initializer_variable_scope(runtime_state);
+          ExecuteStatement(runtime_state, for_statement.initializer_);
+
+          while (IsTruthy(EvaluateExpression(runtime_state, for_statement.condition_))) {
+            const auto execution_state = ExecuteBlock(runtime_state, for_statement.for_block_);
+
+            if (execution_state == ExecutionState::kBreak) {
+              break;
+            }
+
+            ExecuteStatement(runtime_state, for_statement.update_);
           }
           return ExecutionState::kNormal;
         },
@@ -269,8 +299,7 @@ namespace tree_interpreter {
       throw std::runtime_error("ExecuteBlock: null block pointer");
     }
 
-    // Entering new scope
-    runtime_state.scopes_.emplace_back();
+    ScopeGuard block_scope(runtime_state);
 
     auto status = ExecutionState::kNormal;
     // Stop executing the block as soon as break/continue needs to bubble up
@@ -280,9 +309,6 @@ namespace tree_interpreter {
         break;
       }
     }
-
-    // Leaving scope
-    runtime_state.scopes_.pop_back();
 
     return status;
   }

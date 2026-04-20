@@ -29,44 +29,99 @@ The rough direction is “Lua-like use case, different syntax and ergonomics.”
 
 ## Planned Value Model
 
-Early/core types:
+Planned core types:
 
 - integers
+- floats
 - booleans
 - `nothing`
-
-Later candidates:
-
 - strings
-- floats
-- arrays / vector-like collections
-- objects / tables
+- arrays
+- tables
+- closures
 
 ## Planned Semantics
 
 - Integer division while only integers exist
 - Blocks introduce lexical scopes
 
-Current implemented expression semantics:
+Target language scope for the current project phase:
 
-- Arithmetic operators require integer operands
-- Relational operators require integer operands and produce booleans
-- Equality operators are valid across all current runtime value types
-- Logical operators short-circuit and produce booleans
-- `if` conditions use the same truthiness rules as logical operators
-- `while` conditions use the same truthiness rules as logical operators
-- Current truthiness rule:
-  - falsy: `false`, `nothing`, `0`
-  - truthy: `true`, nonzero integers
+### Included
 
-Current implemented control flow:
-
-- `if`
-- `else if`
-- `else`
+- Integer type
+- Float type
+- Boolean type
+- Nothing type
+- String type with `\n`, `\t`, `\\`, `\"` escape sequences
+- Array type with 0-based indexing
+- Table type
+- Closure type
+- `let` declarations with required initializer
+- Assignment to variables
+- Assignment to array index
+- Assignment to table bracket access
+- Assignment to table dot access
+- `if` / `else if` / `else`
 - `while`
+- C-style numeric `for`
 - `break`
 - `continue`
+- `return` with and without value
+- Multiple function definitions
+- Function parameters
+- Function arguments
+- Call expressions
+- First-class functions
+- Closures with captured environment
+- Arithmetic `+`, `-`, `*`, `/`, `%`
+- Mixed int/float arithmetic with float promotion
+- Relational `<`, `>`, `<=`, `>=`
+- Equality `==`, `!=`
+- Logical `&&`, `||` with short-circuit evaluation
+- Unary minus
+- Logical not
+- String concatenation `..`
+- Length operator `#`
+- Array literals
+- Table literals
+- Array indexing
+- Table dot access
+- Table bracket access
+- Lexical block scoping with shadowing
+- `print` with multiple args
+- `debugPrint`
+- Expression statements
+- Line comments
+- `shared_ptr` for strings, arrays, tables, and closures
+- Built-in `type()`
+
+### Not Included
+
+- String interpolation
+- String methods
+- Lambdas
+- Try/catch/throw
+- Block comments
+- Match/switch
+- For-in / iterator protocol
+- Multiple return values
+- Multiple assignment
+- Varargs
+- Destructuring
+- Ternary expression
+- Do-while / repeat-until
+- Type annotations
+- Standard library modules
+- Module system / imports
+- Operator overloading / metatables
+- Coroutines
+- Native function registration API
+- Negative indexing
+- `tostring` / `tonumber` conversions
+- Real tracing GC in the VM tier
+
+Current implemented subset today is still smaller than that full target scope. Use `README.md` as the source of truth for what the code currently supports.
 
 ## Embedding Direction
 
@@ -102,6 +157,9 @@ Statement      <- LetStmt
                / ReturnStmt
                / IfStmt
                / WhileStmt
+               / BreakStmt
+               / ContinueStmt
+               / ForStmt
                / ExprStmt
 
 LetStmt        <- 'let' Identifier '=' Expr ';'
@@ -109,6 +167,9 @@ AssignStmt     <- Identifier '=' Expr ';'
 ReturnStmt     <- 'return' Expr? ';'
 IfStmt         <- 'if' Expr Block ('else' (IfStmt / Block))?
 WhileStmt      <- 'while' Expr Block
+BreakStmt      <- 'break' ';'
+ContinueStmt   <- 'continue' ';'
+ForStmt        <- 'for' '(' Expr? ';' Expr? ';' Expr? ')' Block
 ExprStmt       <- Expr ';'
 
 Expr           <- LogicalOr
@@ -117,18 +178,24 @@ LogicalAnd     <- Equality ('&&' Equality)*
 Equality       <- Comparison (('==' / '!=') Comparison)*
 Comparison     <- Addition (('<=' / '>=' / '<' / '>') Addition)*
 Addition       <- Multiplication (('+' / '-') Multiplication)*
-Multiplication <- Unary (('*' / '/' / '%') Unary)*
-Unary          <- ('-' / '!') Unary / Call
-Call           <- Primary ('(' ArgList ')')*
+Multiplication <- Concat (('*' / '/' / '%') Concat)*
+Concat         <- Unary ('..' Unary)*
+Unary          <- ('-' / '!' / '#') Unary / Call
+Call           <- Primary (('(' ArgList ')') / ('[' Expr ']') / ('.' Identifier))*
 ArgList        <- (Expr (',' Expr)*)?
-Primary        <- Integer / Boolean / Nothing / Identifier / '(' Expr ')'
+Primary        <- Integer / Float / Boolean / Nothing / String / ArrayLiteral / TableLiteral / Identifier / '(' Expr ')'
 
 Boolean        <- 'true' / 'false'
 Nothing        <- 'nothing'
 Integer        <- < '-'? [0-9]+ >
+Float          <- < '-'? [0-9]+ '.' [0-9]+ >
+String         <- '"' ... '"'
+ArrayLiteral   <- '[' (Expr (',' Expr)*)? ']'
+TableLiteral   <- '{' (Identifier ':' Expr (',' Identifier ':' Expr)*)? '}'
 Identifier     <- !Keyword < [a-zA-Z_][a-zA-Z0-9_]* >
 Keyword        <- 'fn' / 'let' / 'return' / 'if' / 'else'
-               / 'while' / 'true' / 'false' / 'nothing'
+               / 'while' / 'for' / 'break' / 'continue'
+               / 'true' / 'false' / 'nothing'
 Comment        <- '//' (!'\n' .)* ('\n' / !.)
 %whitespace    <- ([ \t\r\n] / Comment)*
 ```

@@ -1,0 +1,9 @@
+fn main() {
+    for let i = 0; i < 4; i = i + 1 {
+        if (i == 1) {
+            continue;
+        }
+
+        debugPrint(i);
+    }
+}

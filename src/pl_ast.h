@@ -50,30 +50,30 @@ namespace pl_ast {
 
   // TODO: Try to find a better alternative for shared ptr. Shared ownership is awkward bc only the AST needs
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
-  using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
+  using CopyableExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
   struct ArithmeticExpression {
-    ExpressionPointer left_operand_;
+    CopyableExpressionPointer left_operand_;
     ArithmeticOperator operator_;
-    ExpressionPointer right_operand_;
+    CopyableExpressionPointer right_operand_;
   };
 
   struct RelationalExpression {
-    ExpressionPointer left_operand_;
+    CopyableExpressionPointer left_operand_;
     RelationalOperator operator_;
-    ExpressionPointer right_operand_;
+    CopyableExpressionPointer right_operand_;
   };
 
   struct EqualityExpression {
-    ExpressionPointer left_operand_;
+    CopyableExpressionPointer left_operand_;
     EqualityOperator operator_;
-    ExpressionPointer right_operand_;
+    CopyableExpressionPointer right_operand_;
   };
 
   struct LogicalExpression {
-    ExpressionPointer left_operand_;
+    CopyableExpressionPointer left_operand_;
     LogicalOperator operator_;
-    ExpressionPointer right_operand_;
+    CopyableExpressionPointer right_operand_;
   };
 
   struct DebugPrintStatement {
@@ -110,12 +110,20 @@ namespace pl_ast {
     BlockPointer while_block_;
   };
 
+  struct ForStatement {
+    LetStatement initializer_;
+    ExpressionVariant condition_;
+    AssignmentStatement update_;
+    BlockPointer for_block_;
+  };
+
   struct ContinueStatement {};
 
   struct BreakStatement {};
 
   using StatementVariant = std::variant<
-    DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ContinueStatement, BreakStatement>;
+    DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
+    BreakStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;

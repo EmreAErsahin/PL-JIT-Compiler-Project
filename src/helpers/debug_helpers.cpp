@@ -60,20 +60,28 @@ namespace debug_helpers {
         [](const pl_ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
         [](const pl_ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
         [](const pl_ast::ArithmeticExpression& arithmetic_expression) -> std::string {
-          return "(" + ToString(*arithmetic_expression.left_operand_) + " " + ToString(arithmetic_expression.operator_) + " "
-                 + ToString(*arithmetic_expression.right_operand_) + ")";
+          return std::format(
+            "({} {} {})", ToString(*arithmetic_expression.left_operand_), ToString(arithmetic_expression.operator_),
+            ToString(*arithmetic_expression.right_operand_)
+          );
         },
         [](const pl_ast::RelationalExpression& relational_expression) -> std::string {
-          return "(" + ToString(*relational_expression.left_operand_) + " " + ToString(relational_expression.operator_) + " "
-                 + ToString(*relational_expression.right_operand_) + ")";
+          return std::format(
+            "({} {} {})", ToString(*relational_expression.left_operand_), ToString(relational_expression.operator_),
+            ToString(*relational_expression.right_operand_)
+          );
         },
         [](const pl_ast::EqualityExpression& equality_expression) -> std::string {
-          return "(" + ToString(*equality_expression.left_operand_) + " " + ToString(equality_expression.operator_) + " "
-                 + ToString(*equality_expression.right_operand_) + ")";
+          return std::format(
+            "({} {} {})", ToString(*equality_expression.left_operand_), ToString(equality_expression.operator_),
+            ToString(*equality_expression.right_operand_)
+          );
         },
         [](const pl_ast::LogicalExpression& logical_expression) -> std::string {
-          return "(" + ToString(*logical_expression.left_operand_) + " " + ToString(logical_expression.operator_) + " "
-                 + ToString(*logical_expression.right_operand_) + ")";
+          return std::format(
+            "({} {} {})", ToString(*logical_expression.left_operand_), ToString(logical_expression.operator_),
+            ToString(*logical_expression.right_operand_)
+          );
         },
         [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
@@ -98,20 +106,22 @@ namespace debug_helpers {
             block_string += ");\n";
           },
           [&block_string, depth](const pl_ast::LetStatement& let_statement) {
-            block_string += Indentation(depth) + "let " + let_statement.identifier_.name_ + " = "
-                            + ToString(let_statement.initializer_expression_) + ";\n";
+            block_string += std::format(
+              "{}let {} = {};\n", Indentation(depth), let_statement.identifier_.name_, ToString(let_statement.initializer_expression_)
+            );
           },
           [&block_string, depth](const pl_ast::AssignmentStatement& assignment_statement) {
-            block_string += Indentation(depth) + assignment_statement.identifier_.name_ + " = "
-                            + ToString(assignment_statement.assigned_expression_) + ";\n";
+            block_string += std::format(
+              "{}{} = {};\n", Indentation(depth), assignment_statement.identifier_.name_, ToString(assignment_statement.assigned_expression_)
+            );
           },
           [&block_string, depth](const pl_ast::IfStatement& if_statement) {
-            block_string += Indentation(depth) + "if " + ToString(if_statement.if_condition_) + " {\n";
+            block_string += std::format("{}if {} {{\n", Indentation(depth), ToString(if_statement.if_condition_));
             block_string += ToString(if_statement.if_block_, depth + 1);
             block_string += Indentation(depth) + "}";
 
             for (const auto& [else_if_condition, else_if_block] : if_statement.else_if_branches_) {
-              block_string += " else if " + ToString(else_if_condition) + " {\n";
+              block_string += std::format(" else if {} {{\n", ToString(else_if_condition));
               block_string += ToString(else_if_block, depth + 1);
               block_string += Indentation(depth) + "}";
             }
@@ -125,8 +135,17 @@ namespace debug_helpers {
             block_string += "\n";
           },
           [&block_string, depth](const pl_ast::WhileStatement& while_statement) {
-            block_string += Indentation(depth) + "while " + ToString(while_statement.while_condition_) + " {\n";
+            block_string += std::format("{}while {} {{\n", Indentation(depth), ToString(while_statement.while_condition_));
             block_string += ToString(while_statement.while_block_, depth + 1);
+            block_string += Indentation(depth) + "}\n";
+          },
+          [&block_string, depth](const pl_ast::ForStatement& for_statement) {
+            block_string += std::format(
+              "{}for let {} = {}; {}; {} = {} {{\n", Indentation(depth), for_statement.initializer_.identifier_.name_,
+              ToString(for_statement.initializer_.initializer_expression_), ToString(for_statement.condition_),
+              for_statement.update_.identifier_.name_, ToString(for_statement.update_.assigned_expression_)
+            );
+            block_string += ToString(for_statement.for_block_, depth + 1);
             block_string += Indentation(depth) + "}\n";
           },
           [&block_string, depth](const pl_ast::ContinueStatement&) { block_string += Indentation(depth) + "continue;\n"; },
