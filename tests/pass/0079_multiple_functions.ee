@@ -1,0 +1,11 @@
+fn foo() {
+    let x = 1;
+    debugPrint(x);
+}
+
+fn main() {
+    foo();
+    foo();
+    foo();
+}
+

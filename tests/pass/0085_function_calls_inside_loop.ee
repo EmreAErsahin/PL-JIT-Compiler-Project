@@ -1,0 +1,16 @@
+fn tick() {
+    debugPrint(1);
+}
+
+fn emitTwice() {
+    tick();
+    tick();
+}
+
+fn main() {
+    let i = 0;
+    while i < 2 {
+        emitTwice();
+        i = i + 1;
+    }
+}

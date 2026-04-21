@@ -1,0 +1,11 @@
+fn helper() {
+    let x = 1;
+    x = x + 1;
+    debugPrint(x);
+}
+
+fn main() {
+    let x = 9;
+    helper();
+    debugPrint(x);
+}

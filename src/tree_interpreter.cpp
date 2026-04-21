@@ -20,39 +20,62 @@ namespace tree_interpreter {
   using Value = std::variant<int64_t, bool, NothingValue>;
   using Scope = std::unordered_map<std::string, Value>;
 
-  struct RuntimeState {
+  struct CallFrame {
     std::vector<Scope> scopes_;
+  };
+
+  struct RuntimeState {
+    std::vector<CallFrame> call_stack_;
+    std::unordered_map<std::string, const pl_ast::Function*> available_functions_;
   };
 
   // Using RAII to add/delete scopes on creation of object / exit of scope
   struct ScopeGuard {
-    explicit ScopeGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) { runtime_state_.scopes_.emplace_back(); }
+    explicit ScopeGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) {
+      runtime_state_.call_stack_.back().scopes_.emplace_back();
+    }
 
-    ~ScopeGuard() { runtime_state_.scopes_.pop_back(); }
+    ~ScopeGuard() { runtime_state_.call_stack_.back().scopes_.pop_back(); }
 
     // Need to delete copy/move constructors to ensure we add/delete scopes properly
     ScopeGuard(const ScopeGuard&) = delete;
     ScopeGuard& operator=(const ScopeGuard&) = delete;
     ScopeGuard(ScopeGuard&&) = delete;
     ScopeGuard& operator=(ScopeGuard&&) = delete;
-    
+
    private:
     RuntimeState& runtime_state_;
   };
 
-  Value EvaluateExpression(const RuntimeState& runtime_state, const pl_ast::ExpressionVariant& expression_variant);
+  struct CallFrameGuard {
+    explicit CallFrameGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) { runtime_state_.call_stack_.emplace_back(); }
+
+    ~CallFrameGuard() { runtime_state_.call_stack_.pop_back(); }
+
+    CallFrameGuard(const CallFrameGuard&) = delete;
+    CallFrameGuard& operator=(const CallFrameGuard&) = delete;
+    CallFrameGuard(CallFrameGuard&&) = delete;
+    CallFrameGuard& operator=(CallFrameGuard&&) = delete;
+
+   private:
+    RuntimeState& runtime_state_;
+  };
+
+  Value EvaluateExpression(RuntimeState& runtime_state, const pl_ast::ExpressionVariant& expression_variant);
 
   //
   // Runtime helpers
   //
   std::pair<Value, Value> EvaluateBothOperands(
-    const RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand
+    RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand,
+    const pl_ast::CopyableExpressionPointer& right_operand
   ) {
     return {EvaluateExpression(runtime_state, *left_operand), EvaluateExpression(runtime_state, *right_operand)};
   }
 
   std::pair<int64_t, int64_t> EvaluateBothOperandsAsIntegers(
-    const RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand
+    RuntimeState& runtime_state, const pl_ast::CopyableExpressionPointer& left_operand,
+    const pl_ast::CopyableExpressionPointer& right_operand
   ) {
     const auto [left_value, right_value] = EvaluateBothOperands(runtime_state, left_operand, right_operand);
 
@@ -135,7 +158,7 @@ namespace tree_interpreter {
   }
 
   Value LookupVariable(const RuntimeState& runtime_state, const std::string& variable_name) {
-    for (const auto& scope : std::views::reverse(runtime_state.scopes_)) {
+    for (const auto& scope : std::views::reverse(runtime_state.call_stack_.back().scopes_)) {
       if (const auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
         return variable_iterator->second;
       }
@@ -145,7 +168,7 @@ namespace tree_interpreter {
   }
 
   void DeclareVariable(RuntimeState& runtime_state, const std::string& variable_name, const Value& value) {
-    auto& current_scope = runtime_state.scopes_.back();
+    auto& current_scope = runtime_state.call_stack_.back().scopes_.back();
     if (const auto variable_iterator = current_scope.find(variable_name); variable_iterator != current_scope.end()) {
       throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' already declared");
     }
@@ -154,7 +177,7 @@ namespace tree_interpreter {
   }
 
   void AssignVariable(RuntimeState& runtime_state, const std::string& variable_name, const Value& value) {
-    for (auto& scope : std::views::reverse(runtime_state.scopes_)) {
+    for (auto& scope : std::views::reverse(runtime_state.call_stack_.back().scopes_)) {
       if (auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
         variable_iterator->second = value;
         return;
@@ -177,7 +200,9 @@ namespace tree_interpreter {
   //
   // Core execution
   //
-  Value EvaluateExpression(const RuntimeState& runtime_state, const pl_ast::ExpressionVariant& expression_variant) {
+  Value ExecuteFunction(RuntimeState& runtime_state, const pl_ast::Function& function);
+
+  Value EvaluateExpression(RuntimeState& runtime_state, const pl_ast::ExpressionVariant& expression_variant) {
     return std::visit(
       template_helpers::Overloaded{
         [](const pl_ast::IntegerLiteralExpression& integer_expression) -> Value { return integer_expression.value_; },
@@ -216,6 +241,13 @@ namespace tree_interpreter {
             IsTruthy(left_value), logical_expression.operator_,
             IsTruthy(EvaluateExpression(runtime_state, *logical_expression.right_operand_))
           );
+        },
+        [&runtime_state](const pl_ast::FunctionCallExpression& function_call_expression) -> Value {
+          if (!runtime_state.available_functions_.contains(function_call_expression.function_name_.name_)) {
+            throw std::runtime_error("EvaluateExpression: unknown function '" + function_call_expression.function_name_.name_ + "'");
+          }
+
+          return ExecuteFunction(runtime_state, *runtime_state.available_functions_[function_call_expression.function_name_.name_]);
         }
       },
       expression_variant
@@ -288,6 +320,12 @@ namespace tree_interpreter {
         },
         [](const pl_ast::ContinueStatement&) { return ExecutionState::kContinue; },
         [](const pl_ast::BreakStatement&) { return ExecutionState::kBreak; },
+        [&runtime_state](const pl_ast::FunctionCallStatement& function_call_statement) {
+          if (!std::holds_alternative<NothingValue>(EvaluateExpression(runtime_state, function_call_statement.function_call_))) {
+            throw std::runtime_error("ExecuteStatement: function call didn't return nothing");
+          }
+          return ExecutionState::kNormal;
+        },
         [&runtime_state](const pl_ast::BlockPointer& block_pointer) { return ExecuteBlock(runtime_state, block_pointer); },
       },
       statement_variant
@@ -301,36 +339,52 @@ namespace tree_interpreter {
 
     ScopeGuard block_scope(runtime_state);
 
-    auto status = ExecutionState::kNormal;
+    auto execution_status = ExecutionState::kNormal;
     // Stop executing the block as soon as break/continue needs to bubble up
     for (const auto& statement_variant : block_pointer->statements_) {
-      status = ExecuteStatement(runtime_state, statement_variant);
-      if (status != ExecutionState::kNormal) {
+      execution_status = ExecuteStatement(runtime_state, statement_variant);
+      if (execution_status != ExecutionState::kNormal) {
         break;
       }
     }
 
-    return status;
+    return execution_status;
+  }
+
+  Value ExecuteFunction(RuntimeState& runtime_state, const pl_ast::Function& function) {
+    CallFrameGuard call_frame_guard(runtime_state);
+
+    const auto execution_status = ExecuteBlock(runtime_state, function.function_block_);
+
+    if (execution_status == ExecutionState::kContinue) {
+      throw std::runtime_error("ExecuteFunction: continue statement not within a loop");
+    }
+    if (execution_status == ExecutionState::kBreak) {
+      throw std::runtime_error("ExecuteFunction: break statement not within a loop");
+    }
+
+    return NothingValue{};
+  }
+
+  const pl_ast::Function& BuildFunctionTableAndRequireMain(RuntimeState& runtime_state, const pl_ast::Program& program) {
+    for (const auto& current_function : program.functions_) {
+      if (runtime_state.available_functions_.contains(current_function.identifier_.name_)) {
+        throw std::runtime_error("BuildFunctionTableAndRequireMain: duplicate function '" + current_function.identifier_.name_ + "'");
+      }
+      runtime_state.available_functions_.emplace(current_function.identifier_.name_, &current_function);
+    }
+    if (!runtime_state.available_functions_.contains("main")) {
+      throw std::runtime_error("BuildFunctionTableAndRequireMain: no main function found");
+    }
+    return *runtime_state.available_functions_["main"];
   }
 
   void ExecuteAstWithTreeInterpreter(const pl_ast::Program& program) {
-    // Enforcing one main function
-    const pl_ast::Function* main_function = nullptr;
-    // TODO: Make this for loop once we have multiple functions
-    if (program.function_.identifier_.name_ == "main") {
-      main_function = &program.function_;
-    }
-    if (!main_function) {
-      throw std::runtime_error("ExecuteAstWithTreeInterpreter: no main function found");
-    }
-
     RuntimeState runtime_state;
-    const ExecutionState execution_state = ExecuteBlock(runtime_state, main_function->function_block_);
-    if (execution_state == ExecutionState::kContinue) {
-      throw std::runtime_error("ExecuteAstWithTreeInterpreter: continue statement not within a loop");
-    }
-    if (execution_state == ExecutionState::kBreak) {
-      throw std::runtime_error("ExecuteAstWithTreeInterpreter: break statement not within a loop");
-    }
+
+    const pl_ast::Function& main_function = BuildFunctionTableAndRequireMain(runtime_state, program);
+
+    // No need to do anything with return value
+    ExecuteFunction(runtime_state, main_function);
   }
 } // namespace tree_interpreter

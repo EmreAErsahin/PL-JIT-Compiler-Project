@@ -1,0 +1,8 @@
+fn helper() {
+    let hidden = 1;
+}
+
+fn main() {
+    helper();
+    debugPrint(hidden);
+}
