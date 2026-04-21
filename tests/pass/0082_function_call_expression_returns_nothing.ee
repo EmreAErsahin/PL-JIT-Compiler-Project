@@ -1,0 +1,7 @@
+fn foo() {
+}
+
+fn main() {
+    debugPrint(foo() == nothing);
+    debugPrint(nothing == foo());
+}

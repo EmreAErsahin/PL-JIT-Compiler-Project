@@ -1,0 +1,12 @@
+fn countUp() {
+    let x = 0;
+    while x < 2 {
+        debugPrint(x);
+        x = x + 1;
+    }
+}
+
+fn main() {
+    countUp();
+    countUp();
+}

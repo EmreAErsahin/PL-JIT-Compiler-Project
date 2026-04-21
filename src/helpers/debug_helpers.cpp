@@ -83,6 +83,9 @@ namespace debug_helpers {
             ToString(*logical_expression.right_operand_)
           );
         },
+        [](const pl_ast::FunctionCallExpression& function_call_expression) -> std::string {
+          return std::format("{}()", function_call_expression.function_name_.name_);
+        },
         [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
       expression_variant
@@ -112,7 +115,8 @@ namespace debug_helpers {
           },
           [&block_string, depth](const pl_ast::AssignmentStatement& assignment_statement) {
             block_string += std::format(
-              "{}{} = {};\n", Indentation(depth), assignment_statement.identifier_.name_, ToString(assignment_statement.assigned_expression_)
+              "{}{} = {};\n", Indentation(depth), assignment_statement.identifier_.name_,
+              ToString(assignment_statement.assigned_expression_)
             );
           },
           [&block_string, depth](const pl_ast::IfStatement& if_statement) {
@@ -154,6 +158,9 @@ namespace debug_helpers {
             block_string += Indentation(depth) + "{\n";
             block_string += ToString(nested_block_pointer, depth + 1);
             block_string += Indentation(depth) + "}\n";
+          },
+          [&block_string, depth](const pl_ast::FunctionCallStatement& function_call_statement) {
+            block_string += std::format("{}{}();\n", Indentation(depth), function_call_statement.function_call_.function_name_.name_);
           }
         },
         statement_variant
@@ -163,6 +170,10 @@ namespace debug_helpers {
   }
 
   std::string ToString(const pl_ast::Program& program) {
-    return std::format("fn {}() {{\n{}}}\n", program.function_.identifier_.name_, ToString(program.function_.function_block_, 1));
+    std::string program_string;
+    for (const auto& [identifier, function_block] : program.functions_) {
+      program_string += std::format("fn {}() {{\n{}}}\n", identifier.name_, ToString(function_block, 1));
+    }
+    return program_string;
   }
 } // namespace debug_helpers

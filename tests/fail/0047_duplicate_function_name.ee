@@ -1,0 +1,9 @@
+fn foo() {
+}
+
+fn foo() {
+}
+
+fn main() {
+    foo();
+}

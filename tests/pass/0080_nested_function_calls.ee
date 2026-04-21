@@ -1,0 +1,13 @@
+fn leaf() {
+    debugPrint(1);
+}
+
+fn middle() {
+    leaf();
+    debugPrint(2);
+}
+
+fn main() {
+    middle();
+    middle();
+}

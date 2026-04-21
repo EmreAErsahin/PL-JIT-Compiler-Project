@@ -1,0 +1,7 @@
+fn helper() {
+    continue;
+}
+
+fn main() {
+    helper();
+}

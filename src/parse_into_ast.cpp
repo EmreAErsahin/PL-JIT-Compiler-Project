@@ -22,15 +22,14 @@ namespace parse_into_ast {
   }
 
   template <typename ExpressionNode, typename Operator>
-  pl_ast::ExpressionVariant MakeBinaryExpression(
-    pl_ast::ExpressionVariant left_operand, const Operator operator_value, pl_ast::ExpressionVariant right_operand
-  ) {
+  pl_ast::ExpressionVariant
+  MakeBinaryExpression(pl_ast::ExpressionVariant left_operand, const Operator operator_value, pl_ast::ExpressionVariant right_operand) {
     return pl_ast::ExpressionVariant{
       ExpressionNode{
-        .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
-        .operator_ = operator_value,
-        .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-        }
+                     .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
+                     .operator_ = operator_value,
+                     .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
+                     }
     };
   }
 
@@ -44,7 +43,7 @@ namespace parse_into_ast {
     // - %whitespace: automatically skips between tokens, literal string, & start of input
     // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
     constexpr auto pl_grammar = R"(
-      Program                    <- Function
+      Program                    <- Function+
       Keyword                    <- KeywordFn / KeywordLet / KeywordDebugPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
@@ -60,7 +59,7 @@ namespace parse_into_ast {
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
       Block                      <- '{' Statement* '}'
       Function                   <- ~KeywordFn Identifier '(' ')' Block
-      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement
+      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement / FunctionCallStatement
       DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
@@ -70,9 +69,11 @@ namespace parse_into_ast {
       ForUpdate                  <- Identifier '=' Expression
       ContinueStatement          <- ~KeywordContinue ';'
       BreakStatement             <- ~KeywordBreak ';'
+      FunctionCallStatement      <- FunctionCallExpression ';'
       Expression                 <- InfixExpression(Atom, InfixOperator)
-      Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
+      Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
       IdentifierExpression       <- Identifier
+      FunctionCallExpression     <- Identifier '(' ')'
       InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
@@ -145,6 +146,12 @@ namespace parse_into_ast {
 
     parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}};
+    };
+
+    parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{
+        pl_ast::FunctionCallExpression{.function_name_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}
+      };
     };
 
     parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
@@ -281,6 +288,12 @@ namespace parse_into_ast {
 
     parser["BreakStatement"] = [](const peg::SemanticValues&) { return pl_ast::StatementVariant{pl_ast::BreakStatement{}}; };
 
+    parser["FunctionCallStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{pl_ast::FunctionCallStatement{
+        .function_call_ = std::get<pl_ast::FunctionCallExpression>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0))
+      }};
+    };
+
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
       return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
     };
@@ -305,7 +318,13 @@ namespace parse_into_ast {
     };
 
     parser["Program"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::Program{.function_ = CastSemanticValueTo<pl_ast::Function>(semantic_values, 0)};
+      pl_ast::Program program;
+      const size_t number_of_functions = semantic_values.size();
+      program.functions_.reserve(number_of_functions);
+      for (size_t current_function = 0; current_function < number_of_functions; ++current_function) {
+        program.functions_.push_back(CastSemanticValueTo<pl_ast::Function>(semantic_values, current_function));
+      }
+      return program;
     };
 
     // Trades memory usage for better speed with memoization of grammar rules

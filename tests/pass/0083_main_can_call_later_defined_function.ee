@@ -1,0 +1,9 @@
+fn main() {
+    debugPrint(1);
+    helper();
+    debugPrint(3);
+}
+
+fn helper() {
+    debugPrint(2);
+}

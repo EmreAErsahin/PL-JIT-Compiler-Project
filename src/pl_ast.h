@@ -44,9 +44,13 @@ namespace pl_ast {
   struct LogicalExpression;
   // clang-format on
 
+  struct FunctionCallExpression {
+    Identifier function_name_;
+  };
+
   using ExpressionVariant = std::variant<
     IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, IdentifierExpression, ArithmeticExpression,
-    RelationalExpression, EqualityExpression, LogicalExpression>;
+    RelationalExpression, EqualityExpression, LogicalExpression, FunctionCallExpression>;
 
   // TODO: Try to find a better alternative for shared ptr. Shared ownership is awkward bc only the AST needs
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
@@ -121,9 +125,13 @@ namespace pl_ast {
 
   struct BreakStatement {};
 
+  struct FunctionCallStatement {
+    FunctionCallExpression function_call_;
+  };
+
   using StatementVariant = std::variant<
     DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
-    BreakStatement>;
+    BreakStatement, FunctionCallStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;
@@ -136,7 +144,7 @@ namespace pl_ast {
   };
 
   struct Program {
-    Function function_;
+    std::vector<Function> functions_;
   };
 } // namespace pl_ast
 
