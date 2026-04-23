@@ -8,19 +8,19 @@ This repository is currently a small C++23 interpreter project built around a ha
 - Main binary: `interpreter`
 - Language implementation pipeline: source file -> PEG parser -> handwritten AST -> tree interpreter
 - Current runtime model: dynamically typed values implemented as `std::variant<int64_t, bool, NothingValue>`
-- Current program model: exactly one parsed function, executed only when its name is `main`
+- Current program model: multiple top-level functions, with CLI execution starting at `main`
 - Testing model: golden-file tests comparing exact stdout for passing cases and exact stderr for failing cases
 - Long-term direction: larger scripting language plus VM / GC / JIT, documented in `README.md` and `docs/`
 
 ## Project Layout
 
 - `src/main.cpp`: CLI entry point, `--debug` handling, top-level exception reporting
-- `src/parse_into_ast.cpp`, `src/parse_into_ast.h`: PEG grammar and semantic actions that build the AST
-- `src/pl_ast.h`: AST node definitions for expressions, statements, blocks, function, and program
-- `src/tree_interpreter.cpp`, `src/tree_interpreter.h`: runtime value model, scope handling, expression evaluation, statement execution
-- `src/helpers/debug_helpers.cpp`, `src/helpers/debug_helpers.h`: AST pretty-printer used by `--debug`
-- `src/helpers/io_helpers.cpp`, `src/helpers/io_helpers.h`: file loading helper
-- `src/helpers/overloaded.h`: `std::visit` helper
+- `src/parser/parser.cpp`, `src/parser/parser.h`: parser construction and semantic actions that build the AST
+- `src/parser/language_grammar.h`: PEG grammar string used by the parser
+- `src/ast/ast.h`: AST node definitions for expressions, statements, blocks, functions, and programs
+- `src/ast/ast_printer.cpp`, `src/ast/ast_printer.h`: AST pretty-printer used by `--debug`
+- `src/tree_interpreter/tree_interpreter.cpp`, `src/tree_interpreter/tree_interpreter.h`: runtime value model, runtime state, and statement/expression execution
+- `src/common/overloaded.h`: `std::visit` helper
 - `third_party/peglib.h`: vendored parser library
 - `tests/pass`: programs expected to succeed with matching `.out`
 - `tests/fail`: programs expected to fail with matching `.err`
@@ -48,13 +48,14 @@ Before considering parser or runtime work complete, build and run the most relev
 
 The current code implements this subset today:
 
-- One function program only
+- Multiple top-level function definitions
 - Required `fn main()` in CLI execution
 - `debugPrint(...)` with optional expression and no automatic newline
 - `let` declarations with required initializer
 - Assignment to an existing variable
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
+- Zero-argument function calls in expression and statement position
 - Arithmetic `+`, `-`, `*`, `/` on integers only
 - Relational `<`, `<=`, `>`, `>=` on integers only
 - Equality `==`, `!=` across all current runtime value types
@@ -71,9 +72,9 @@ The current code implements this subset today:
 
 ## Important Current Constraints
 
-- `pl_ast::Program` stores exactly one `Function`
-- The parser grammar is `Program <- Function`, not `Function*`
-- Functions do not yet support parameters, return values, or calls
+- The parser grammar is `Program <- Function+`
+- Functions do not yet support parameters or return values
+- Function calls are currently zero-argument only and always return `nothing`
 - There are no arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
 - Runtime values are only `int64_t`, `bool`, and `NothingValue`
 - Truthiness currently treats `false`, `nothing`, and integer `0` as falsy; nonzero integers and `true` are truthy
@@ -87,8 +88,8 @@ The current code implements this subset today:
 
 ### Parsing
 
-- The parser is created inside `MakeParser()` in `src/parse_into_ast.cpp`
-- Grammar and semantic actions live together in one file
+- The parser is created inside `MakeParser()` in `src/parser/parser.cpp`
+- Grammar text lives in `src/parser/language_grammar.h` and semantic actions live in `src/parser/parser.cpp`
 - `cpp-peglib` semantic values use `std::any`, so AST pieces stored during parsing must be copyable
 - That is why expression and block nodes use `std::shared_ptr` in specific AST locations
 - Operator precedence is handled by `InfixExpression(...){ precedence ... }`
@@ -105,16 +106,17 @@ The current code implements this subset today:
 ### Runtime
 
 - The interpreter is a direct tree walk over the AST
-- Scope management is stack-based via `RuntimeState::scopes_`
+- Runtime state and AST execution are split between `RuntimeState` and `Interpreter` inside `src/tree_interpreter/tree_interpreter.cpp`
+- Scope management is stack-based via `RuntimeState` call frames and lexical scope stacks
 - `ScopeGuard` uses RAII to push/pop scopes for blocks and `for` initializer lifetime
 - Variable lookup and assignment search from innermost scope outward
-- Loop control flow bubbles through blocks using `ExecutionState`
+- Loop control flow bubbles through blocks using `ControlFlow`
 - `continue` inside `for` still triggers the update step because the loop body returns `kContinue`, which is treated like non-break in the `for` handler
 
 ### Debug Output
 
 - `--debug` prints the parsed AST back into a source-like textual form before execution
-- `debug_helpers.cpp` must usually be updated when AST-visible syntax changes
+- `ast_printer.cpp` must usually be updated when AST-visible syntax changes
 
 ## Build Toolchain
 
@@ -142,15 +144,16 @@ The current code implements this subset today:
 
 - Prefer small, local changes that fit the existing parser -> AST -> interpreter flow
 - When adding a language feature, update all affected layers together:
-- `src/parse_into_ast.cpp` grammar and parse actions
-- `src/pl_ast.h` AST representation
-- `src/tree_interpreter.cpp` runtime behavior
-- `src/helpers/debug_helpers.cpp` if debug rendering should expose the feature
+- `src/parser/language_grammar.h` grammar text when syntax changes
+- `src/parser/parser.cpp` parse actions
+- `src/ast/ast.h` AST representation
+- `src/tree_interpreter/tree_interpreter.cpp` runtime behavior
+- `src/ast/ast_printer.cpp` if debug rendering should expose the feature
 - `README.md` if the implemented subset changes
 - tests under `tests/pass` or `tests/fail`
 
 - Match the current style:
-- free functions over heavy class hierarchies
+- small focused classes where state ownership is clearer than flat free functions
 - `std::variant` + `std::visit`
 - designated initializers where they improve clarity
 - targeted `std::shared_ptr` usage only where parser copyability forces it

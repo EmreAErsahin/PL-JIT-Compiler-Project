@@ -3,11 +3,11 @@
 #include <string>
 #include <variant>
 
-#include "../pl_ast.h"
-#include "debug_helpers.h"
-#include "overloaded.h"
+#include "../common/overloaded.h"
+#include "ast.h"
+#include "ast_printer.h"
 
-namespace debug_helpers {
+namespace ast_walk {
   std::string Indentation(const size_t depth) {
     return std::string(depth, '\t');
   }
@@ -176,4 +176,4 @@ namespace debug_helpers {
     }
     return program_string;
   }
-} // namespace debug_helpers
+} // namespace ast_walk
