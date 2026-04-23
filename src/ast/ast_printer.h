@@ -3,9 +3,9 @@
 
 #include <string>
 
-#include "../pl_ast.h"
+#include "ast.h"
 
-namespace debug_helpers {
+namespace ast_walk {
   std::string ToString(const pl_ast::Program& program);
 }
 

@@ -1,13 +1,26 @@
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <sstream>
+#include <stdexcept>
 #include <string>
 
-#include "helpers/debug_helpers.h"
-#include "helpers/io_helpers.h"
-#include "parse_into_ast.h"
-#include "pl_ast.h"
-#include "tree_interpreter.h"
+#include "ast/ast.h"
+#include "ast/ast_printer.h"
+#include "parser/parser.h"
+#include "tree_interpreter/tree_interpreter.h"
+
+std::string ReadFile(const std::filesystem::path& path) {
+  std::ifstream input(path);
+  if (!input) {
+    throw std::runtime_error("ReadFile: failed to open file '" + path.string() + "'");
+  }
+
+  std::ostringstream file_contents;
+  file_contents << input.rdbuf();
+  return file_contents.str();
+}
 
 int main(const int argc, char** argv) {
   // Handling options that are passed in by user (--debug)
@@ -31,12 +44,12 @@ int main(const int argc, char** argv) {
 
   // Execution of source code begins here
   try {
-    const std::string file_contents = io_helpers::ReadFile(source_path);
+    const std::string file_contents = ReadFile(source_path);
 
-    const auto program_ast = parse_into_ast::ParseFileContentsIntoAST(file_contents);
+    const auto program_ast = parser::ParseFileContentsIntoAST(file_contents);
 
     if (debug) {
-      std::cout << debug_helpers::ToString(program_ast);
+      std::cout << ast_walk::ToString(program_ast);
     }
 
     tree_interpreter::ExecuteAstWithTreeInterpreter(program_ast);

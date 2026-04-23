@@ -82,12 +82,13 @@ Small C++23 language implementation project built around a handwritten AST, a `c
 
 The code in this repository currently implements a smaller interpreter-first subset:
 
-- One function program with required `fn main()` in CLI mode
+- Multiple top-level function definitions with required `fn main()` in CLI mode
 - `debugPrint(...)`
 - `let` declarations with required initializers
 - Assignment to existing variables
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
+- Zero-argument function calls in expression and statement position
 - Arithmetic `+`, `-`, `*`, `/` on integers only
 - Relational `<`, `>`, `<=`, `>=` on integers only
 - Equality `==`, `!=` across all current runtime value types
@@ -104,8 +105,9 @@ The code in this repository currently implements a smaller interpreter-first sub
 
 Current implementation limits worth keeping in mind:
 
-- `Program` currently stores exactly one function
-- No `return`, params, function calls, arrays, tables, strings, floats, or closures yet
+- Functions do not yet support parameters or return values
+- Function calls are currently zero-argument only and always return `nothing`
+- No arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
 - Arithmetic on non-integers is a runtime error
 - Relational operators on non-integers are a runtime error
 - Division by zero is a runtime error
@@ -141,7 +143,7 @@ make clean && make build
 ## Current Grammar
 
 ```peg
-Program                    <- Function
+Program                    <- Function+
 Keyword                    <- KeywordFn / KeywordLet / KeywordDebugPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak
 KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
 KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
@@ -158,7 +160,7 @@ KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
 
 Block                      <- '{' Statement* '}'
 Function                   <- ~KeywordFn Identifier '(' ')' Block
-Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement
+Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement / FunctionCallStatement
 DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
 LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
 AssignmentStatement        <- Identifier '=' Expression ';'
@@ -168,10 +170,12 @@ ForStatement               <- ~KeywordFor LetStatement Expression ';' ForUpdate 
 ForUpdate                  <- Identifier '=' Expression
 ContinueStatement          <- ~KeywordContinue ';'
 BreakStatement             <- ~KeywordBreak ';'
+FunctionCallStatement      <- FunctionCallExpression ';'
 
 Expression                 <- InfixExpression(Atom, InfixOperator)
-Atom                       <- Integer / Bool / Nothing / IdentifierExpression / '(' Expression ')'
+Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
 IdentifierExpression       <- Identifier
+FunctionCallExpression     <- Identifier '(' ')'
 InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
 Bool                       <- ~KeywordTrue / ~KeywordFalse
 Nothing                    <- ~KeywordNothing
@@ -213,6 +217,9 @@ LineComment                <- '//' (!End .)* &End
 - `if` / `else if` / `else` execute the first truthy branch only
 - `while` uses the same truthiness rules as `if` and logical operators
 - `for` uses the shape `for let i = init; condition; i = update { ... }`
+- Function lookup is by top-level name and later-defined functions may still be called
+- Function calls currently execute in a fresh call frame with their own scope stack
+- Function calls used as statements must evaluate to `nothing`
 - The `for` initializer variable lives for the full loop and is not visible after the loop ends
 - `break` exits the nearest enclosing loop
 - `continue` skips the rest of the current loop iteration and reevaluates the loop condition
@@ -226,10 +233,12 @@ The target language scope above is the intended near-to-medium-term direction fo
 ## Project Layout
 
 - `src/main.cpp`: CLI entry point
-- `src/parse_into_ast.cpp`: grammar and parser actions
-- `src/pl_ast.h`: AST definitions
-- `src/tree_interpreter.cpp`: runtime interpreter
-- `src/helpers/debug_helpers.cpp`: AST debug printer
+- `src/parser/parser.cpp`: parser construction and semantic actions
+- `src/parser/language_grammar.h`: PEG grammar string
+- `src/ast/ast.h`: AST definitions
+- `src/ast/ast_printer.cpp`: AST debug printer
+- `src/tree_interpreter/tree_interpreter.cpp`: tree-walk runtime
+- `src/common/overloaded.h`: `std::visit` helper
 - `tests/pass`, `tests/fail`: golden tests
 - `scripts`: test/debug scripts
 
