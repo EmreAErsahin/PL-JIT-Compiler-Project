@@ -8,7 +8,7 @@
 
 #include "ast/ast.h"
 #include "ast/ast_printer.h"
-#include "parser/parser.h"
+#include "parse_into_ast.h"
 #include "tree_interpreter/tree_interpreter.h"
 
 std::string ReadFile(const std::filesystem::path& path) {
@@ -46,7 +46,7 @@ int main(const int argc, char** argv) {
   try {
     const std::string file_contents = ReadFile(source_path);
 
-    const auto program_ast = parser::ParseFileContentsIntoAST(file_contents);
+    const auto program_ast = parse_into_ast::ParseFileContentsIntoAST(file_contents);
 
     if (debug) {
       std::cout << ast_walk::ToString(program_ast);

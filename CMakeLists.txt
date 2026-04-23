@@ -3,7 +3,7 @@ project(PL-JIT-Compiler LANGUAGES CXX)
 
 add_executable(interpreter
         src/main.cpp
-        src/parser/parser.cpp
+        src/parse_into_ast.cpp
         src/ast/ast_printer.cpp
         src/tree_interpreter/tree_interpreter.cpp
 )

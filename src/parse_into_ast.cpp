@@ -1,18 +1,18 @@
 #include "peglib.h"
 
-#include <concepts>
 #include <any>
+#include <concepts>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <variant>
 #include <vector>
 
-#include "../common/overloaded.h"
+#include "common/overloaded.h"
 #include "language_grammar.h"
-#include "parser.h"
+#include "parse_into_ast.h"
 
-namespace parser {
+namespace parse_into_ast {
   using InfixOperator =
     std::variant<pl_ast::ArithmeticOperator, pl_ast::RelationalOperator, pl_ast::EqualityOperator, pl_ast::LogicalOperator>;
 
@@ -37,7 +37,7 @@ namespace parser {
   peg::parser MakeParser() {
     peg::parser parser;
 
-    if (!parser.load_grammar(std::string(parser_grammar::kPegGrammar))) {
+    if (!parser.load_grammar(parse_into_ast_grammar::kPegGrammar)) {
       throw std::runtime_error("MakeParser: failed to load parser grammar");
     }
 
@@ -159,13 +159,10 @@ namespace parser {
     };
 
     parser["IfStatement"] = [](const peg::SemanticValues& semantic_values) {
-      // First two semantic values are if, last one is else if it's present, everything in the middle is else ifs
       auto if_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
       auto if_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1));
 
       pl_ast::ElseIfConditionBlockPairs else_if_branches;
-      // Semantic values are: if condition, if block, zero or more else-if condition/block pairs,
-      // and an optional trailing else block.
       const size_t number_of_else_if_branches = (semantic_values.size() - 2) / 2;
       for (size_t current_branch = 1; current_branch <= number_of_else_if_branches; ++current_branch) {
         else_if_branches.emplace_back(
@@ -200,7 +197,6 @@ namespace parser {
     };
 
     parser["ForStatement"] = [](const peg::SemanticValues& semantic_values) {
-      // Statements are all held as statement variant, so we cant any cast straight to let statement / assignment statement
       auto initializer = std::get<pl_ast::LetStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0));
       auto condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1);
       auto update = std::get<pl_ast::AssignmentStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 2));
@@ -250,7 +246,6 @@ namespace parser {
       return pl_ast::StatementVariant{std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)})};
     };
 
-    // Using designated initializers for clarity & safety against changing field positions
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::Function{
         .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
@@ -268,7 +263,6 @@ namespace parser {
       return program;
     };
 
-    // Trades memory usage for better speed with memoization of grammar rules
     parser.enable_packrat_parsing();
 
     return parser;
@@ -289,7 +283,6 @@ namespace parser {
 
     pl_ast::Program program_ast;
     if (!parser.parse(file_contents, program_ast)) {
-      // TODO: Sometimes logger won't populate all of these, potentially leading to poor error messages
       throw std::runtime_error(
         "ParseFileContentsIntoAST: parse failed at " + std::to_string(error_line) + ':' + std::to_string(error_column) + ": "
         + error_message
@@ -298,4 +291,4 @@ namespace parser {
 
     return program_ast;
   }
-} // namespace parser
+} // namespace parse_into_ast

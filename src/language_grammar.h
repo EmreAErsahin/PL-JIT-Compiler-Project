@@ -3,7 +3,7 @@
 
 #include <string_view>
 
-namespace parser_grammar {
+namespace parse_into_ast_grammar {
   // Grammar notes:
   // - <...>: treat the whole match as one token (tokens have automatic whitespace consumption after)
   // - ~Rule: parse it, but ignore its semantic value
@@ -63,6 +63,6 @@ namespace parser_grammar {
       LineComment <- '//' (!End .)* &End
       %whitespace                <- ([ \t\r\n] / LineComment)*
     )";
-} // namespace parser_grammar
+} // namespace parse_into_ast_grammar
 
 #endif // language_grammar_H
