@@ -5,44 +5,44 @@ fn main() {
     let flag = false;
     let value = nothing;
 
-    // debugPrint with no argument prints nothing
-    debugPrint();
-    debugPrint((x + y) * (x - y));
-    debugPrint(x > y);
-    debugPrint(x == y);
-    debugPrint(value == nothing);
+    // print with no argument prints nothing
+    print();
+    print((x + y) * (x - y));
+    print(x > y);
+    print(x == y);
+    print(value == nothing);
 
     if ((x > y) && (flag || 1)) {
-        debugPrint(1);
+        print(1);
     } else {
-        debugPrint(0);
+        print(0);
     }
 
     {
         let x = 0;
-        debugPrint(x);
+        print(x);
 
         if (x) {
-            debugPrint(9);
+            print(9);
         } else if (nothing) {
-            debugPrint(8);
+            print(8);
         } else {
-            debugPrint(7);
+            print(7);
         }
     }
 
     y = x / 3;
-    debugPrint(y);
+    print(y);
 
     if (flag) {
-        debugPrint(4);
+        print(4);
     } else if (y != 2) {
-        debugPrint(5);
+        print(5);
     } else {
-        debugPrint(6);
+        print(6);
     }
 
     flag = true;
-    debugPrint(flag && (y >= 2));
-    debugPrint((0 || flag) && (nothing || true));
+    print(flag && (y >= 2));
+    print((0 || flag) && (nothing || true));
 }

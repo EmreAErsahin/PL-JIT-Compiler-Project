@@ -1,5 +1,5 @@
 fn main() {
     let value = 1 + // comment between operands
         2 * 3;
-    debugPrint(value);
+    print(value);
 }

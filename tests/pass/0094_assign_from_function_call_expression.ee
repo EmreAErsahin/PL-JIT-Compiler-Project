@@ -1,0 +1,9 @@
+fn value() {
+    return 2;
+}
+
+fn main() {
+    let x = 1;
+    x = value() + 5 * 3;
+    print(x);
+}

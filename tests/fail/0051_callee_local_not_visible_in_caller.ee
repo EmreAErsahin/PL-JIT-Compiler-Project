@@ -4,5 +4,5 @@ fn helper() {
 
 fn main() {
     helper();
-    debugPrint(hidden);
+    print(hidden);
 }

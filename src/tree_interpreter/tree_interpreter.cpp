@@ -1,4 +1,5 @@
 #include <iostream>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -24,7 +25,12 @@ namespace tree_interpreter {
     std::vector<Scope> scopes_;
   };
 
-  enum class ControlFlow { kNormal, kContinue, kBreak };
+  enum class ControlFlow { kNormal, kReturn, kContinue, kBreak };
+
+  struct ExecutionResult {
+    ControlFlow control_flow_ = ControlFlow::kNormal;
+    std::optional<Value> return_value_ = std::nullopt;
+  };
 
   bool IsTruthy(const Value& value) {
     return std::visit(
@@ -93,7 +99,7 @@ namespace tree_interpreter {
     throw std::runtime_error("ExecuteLogicalOperation: unsupported logical operator");
   }
 
-  void DebugPrintValue(const Value& value) {
+  void PrintValue(const Value& value) {
     std::visit(
       template_helpers::Overloaded{
         [](const int64_t integer_value) { std::cout << integer_value; },
@@ -233,55 +239,54 @@ namespace tree_interpreter {
     Value ExecuteFunction(const pl_ast::Function& function) {
       RuntimeState::CallFrameGuard call_frame_guard(runtime_state_);
 
-      const auto control_flow = ExecuteBlock(function.function_block_);
+      const auto [control_flow, return_value] = ExecuteBlock(function.function_block_);
 
-      if (control_flow == ControlFlow::kContinue) {
-        throw std::runtime_error("ExecuteFunction: continue statement not within a loop");
-      }
-      if (control_flow == ControlFlow::kBreak) {
-        throw std::runtime_error("ExecuteFunction: break statement not within a loop");
+      switch (control_flow) {
+        case ControlFlow::kNormal: return NothingValue{};
+        case ControlFlow::kReturn: return return_value ? *return_value : NothingValue{};
+        case ControlFlow::kContinue: throw std::runtime_error("ExecuteFunction: continue statement not within a loop");
+        case ControlFlow::kBreak: throw std::runtime_error("ExecuteFunction: break statement not within a loop");
       }
 
-      // For now, we are always returning nothing
-      return NothingValue{};
+      throw std::runtime_error("ExecuteFunction: unknown control flow");
     }
 
-    ControlFlow ExecuteBlock(const pl_ast::BlockPointer& block_pointer) {
+    ExecutionResult ExecuteBlock(const pl_ast::BlockPointer& block_pointer) {
       if (!block_pointer) {
         throw std::runtime_error("ExecuteBlock: null block pointer");
       }
 
       RuntimeState::ScopeGuard block_scope(runtime_state_);
 
-      auto control_flow = ControlFlow::kNormal;
+      ExecutionResult execution_result;
       for (const auto& statement_variant : block_pointer->statements_) {
-        control_flow = ExecuteStatement(statement_variant);
-        if (control_flow != ControlFlow::kNormal) {
+        execution_result = ExecuteStatement(statement_variant);
+        if (execution_result.control_flow_ != ControlFlow::kNormal) {
           break;
         }
       }
 
-      return control_flow;
+      return execution_result;
     }
 
-    ControlFlow ExecuteStatement(const pl_ast::StatementVariant& statement_variant) {
+    ExecutionResult ExecuteStatement(const pl_ast::StatementVariant& statement_variant) {
       return std::visit(
         template_helpers::Overloaded{
-          [this](const pl_ast::DebugPrintStatement& debug_print_statement) {
-            if (debug_print_statement.expression_) {
-              DebugPrintValue(EvaluateExpression(*debug_print_statement.expression_));
+          [this](const pl_ast::PrintStatement& print_statement) {
+            if (print_statement.expression_) {
+              PrintValue(EvaluateExpression(*print_statement.expression_));
             }
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::LetStatement& let_statement) {
             runtime_state_.DeclareVariable(let_statement.identifier_.name_, EvaluateExpression(let_statement.initializer_expression_));
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::AssignmentStatement& assignment_statement) {
             runtime_state_.AssignVariable(
               assignment_statement.identifier_.name_, EvaluateExpression(assignment_statement.assigned_expression_)
             );
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::IfStatement& if_statement) {
             if (IsTruthy(EvaluateExpression(if_statement.if_condition_))) {
@@ -297,17 +302,20 @@ namespace tree_interpreter {
             if (if_statement.else_block_) {
               return ExecuteBlock(*if_statement.else_block_);
             }
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::WhileStatement& while_statement) {
             while (IsTruthy(EvaluateExpression(while_statement.while_condition_))) {
-              const auto control_flow = ExecuteBlock(while_statement.while_block_);
+              const ExecutionResult execution_result = ExecuteBlock(while_statement.while_block_);
 
-              if (control_flow == ControlFlow::kBreak) {
-                break;
+              switch (execution_result.control_flow_) {
+                case ControlFlow::kNormal:
+                case ControlFlow::kContinue: continue;
+                case ControlFlow::kBreak: return ExecutionResult{ControlFlow::kNormal};
+                case ControlFlow::kReturn: return execution_result;
               }
             }
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::ForStatement& for_statement) {
             // Must add scope for initializer variable (needs to live past loop iterations).
@@ -315,23 +323,29 @@ namespace tree_interpreter {
             ExecuteStatement(for_statement.initializer_);
 
             while (IsTruthy(EvaluateExpression(for_statement.condition_))) {
-              const auto control_flow = ExecuteBlock(for_statement.for_block_);
+              const ExecutionResult execution_result = ExecuteBlock(for_statement.for_block_);
 
-              if (control_flow == ControlFlow::kBreak) {
-                break;
+              switch (execution_result.control_flow_) {
+                case ControlFlow::kBreak: return ExecutionResult{ControlFlow::kNormal};
+                case ControlFlow::kReturn: return execution_result;
+                case ControlFlow::kNormal:
+                case ControlFlow::kContinue: ExecuteStatement(for_statement.update_);
               }
-
-              ExecuteStatement(for_statement.update_);
             }
-            return ControlFlow::kNormal;
+            return ExecutionResult{ControlFlow::kNormal};
           },
-          [](const pl_ast::ContinueStatement&) { return ControlFlow::kContinue; },
-          [](const pl_ast::BreakStatement&) { return ControlFlow::kBreak; },
+          [](const pl_ast::ContinueStatement&) { return ExecutionResult{ControlFlow::kContinue}; },
+          [](const pl_ast::BreakStatement&) { return ExecutionResult{ControlFlow::kBreak}; },
+          [this](const pl_ast::ReturnStatement& return_statement) {
+            return ExecutionResult{
+              ControlFlow::kReturn,
+              return_statement.return_expression_ ? EvaluateExpression(*return_statement.return_expression_) : NothingValue{}
+            };
+          },
           [this](const pl_ast::FunctionCallStatement& function_call_statement) {
-            if (!std::holds_alternative<NothingValue>(EvaluateExpression(function_call_statement.function_call_))) {
-              throw std::runtime_error("ExecuteStatement: function call didn't return nothing");
-            }
-            return ControlFlow::kNormal;
+            EvaluateExpression(function_call_statement.function_call_);
+            // Control flow is normal because function call statements are only ran for side effects
+            return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::BlockPointer& block_pointer) { return ExecuteBlock(block_pointer); },
         },

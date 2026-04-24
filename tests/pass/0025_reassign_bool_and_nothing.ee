@@ -1,7 +1,7 @@
 fn main() {
     let x = 1;
     x = true;
-    debugPrint(x);
+    print(x);
     x = nothing;
-    debugPrint(x);
+    print(x);
 }

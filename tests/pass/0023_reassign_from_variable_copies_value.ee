@@ -3,6 +3,6 @@ fn main() {
     let y = 2;
     x = y;
     y = 3;
-    debugPrint(x);
-    debugPrint(y);
+    print(x);
+    print(y);
 }

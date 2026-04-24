@@ -1,4 +1,4 @@
 fn main() {
-    debugPrint(false && (1 / 0));
-    debugPrint(0 && (1 / 0));
+    print(false && (1 / 0));
+    print(0 && (1 / 0));
 }

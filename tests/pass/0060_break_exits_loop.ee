@@ -1,9 +1,9 @@
 fn main() {
     let i = 0;
     while (true) {
-        debugPrint(i);
+        print(i);
         break;
         i = i + 1;
     }
-    debugPrint(9);
+    print(9);
 }

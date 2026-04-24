@@ -1,0 +1,10 @@
+fn helper() {
+    for let i = 0; i < 3; i = i + 1 {
+        return i + 5;
+    }
+    print(999);
+}
+
+fn main() {
+    print(helper());
+}

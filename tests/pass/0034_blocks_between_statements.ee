@@ -1,8 +1,8 @@
 fn main() {
-    debugPrint(1);
+    print(1);
     {
         {
         }
     }
-    debugPrint(2);
+    print(2);
 }

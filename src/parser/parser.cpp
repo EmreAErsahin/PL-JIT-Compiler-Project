@@ -132,12 +132,12 @@ namespace parser {
       );
     };
 
-    parser["DebugPrintStatement"] = [](const peg::SemanticValues& semantic_values) {
-      pl_ast::DebugPrintStatement debug_print_statement;
+    parser["PrintStatement"] = [](const peg::SemanticValues& semantic_values) {
+      pl_ast::PrintStatement print_statement;
       if (!semantic_values.empty()) {
-        debug_print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+        print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
       }
-      return pl_ast::StatementVariant{debug_print_statement};
+      return pl_ast::StatementVariant{print_statement};
     };
 
     parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {
@@ -228,6 +228,14 @@ namespace parser {
     parser["ContinueStatement"] = [](const peg::SemanticValues&) { return pl_ast::StatementVariant{pl_ast::ContinueStatement{}}; };
 
     parser["BreakStatement"] = [](const peg::SemanticValues&) { return pl_ast::StatementVariant{pl_ast::BreakStatement{}}; };
+
+    parser["ReturnStatement"] = [](const peg::SemanticValues& semantic_values) {
+      pl_ast::ReturnStatement return_statement;
+      if (!semantic_values.empty()) {
+        return_statement.return_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      }
+      return pl_ast::StatementVariant{return_statement};
+    };
 
     parser["FunctionCallStatement"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{pl_ast::FunctionCallStatement{

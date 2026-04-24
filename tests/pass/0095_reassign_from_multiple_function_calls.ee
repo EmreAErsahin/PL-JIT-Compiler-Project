@@ -1,0 +1,13 @@
+fn left() {
+    return 4;
+}
+
+fn right() {
+    return 6;
+}
+
+fn main() {
+    let x = 0;
+    x = left() + right();
+    print(x);
+}

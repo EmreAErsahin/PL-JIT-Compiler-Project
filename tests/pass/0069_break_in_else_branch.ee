@@ -2,11 +2,11 @@ fn main() {
     let i = 0;
     while (true) {
         if (i == 1) {
-            debugPrint(9);
+            print(9);
         } else {
             break;
         }
         i = i + 1;
     }
-    debugPrint(2);
+    print(2);
 }

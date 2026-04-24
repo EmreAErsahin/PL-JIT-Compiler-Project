@@ -12,10 +12,10 @@ namespace parser_grammar {
   // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
   inline constexpr std::string_view kPegGrammar = R"(
       Program                    <- Function+
-      Keyword                    <- KeywordFn / KeywordLet / KeywordDebugPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak
+      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
-      KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
+      KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
       KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
       KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
       KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
@@ -25,10 +25,11 @@ namespace parser_grammar {
       KeywordFor                 <- < 'for' ![a-zA-Z0-9_] >
       KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
+      KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
       Block                      <- '{' Statement* '}'
       Function                   <- ~KeywordFn Identifier '(' ')' Block
-      Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement / FunctionCallStatement
-      DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
+      Statement                  <- Block / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
+      PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
       IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
@@ -37,6 +38,7 @@ namespace parser_grammar {
       ForUpdate                  <- Identifier '=' Expression
       ContinueStatement          <- ~KeywordContinue ';'
       BreakStatement             <- ~KeywordBreak ';'
+      ReturnStatement            <- ~KeywordReturn Expression? ';'
       FunctionCallStatement      <- FunctionCallExpression ';'
       Expression                 <- InfixExpression(Atom, InfixOperator)
       Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
@@ -57,10 +59,10 @@ namespace parser_grammar {
           L + -
           L * /
       }
-      End <- EndOfLine / EndOfFile
-      EndOfLine <- '\r\n' / '\n' / '\r'
-      EndOfFile                <-  !.
-      LineComment <- '//' (!End .)* &End
+      End                        <- EndOfLine / EndOfFile
+      EndOfLine                  <- '\r\n' / '\n' / '\r'
+      EndOfFile                  <- !.
+      LineComment                <- '//' (!End .)* &End
       %whitespace                <- ([ \t\r\n] / LineComment)*
     )";
 } // namespace parser_grammar

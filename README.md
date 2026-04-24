@@ -1,128 +1,108 @@
 # PL-JIT-Compiler-Project
 
-Small C++23 language implementation project built around a handwritten AST, a `cpp-peglib` parser, and a tree-walk interpreter. The repository is still in an interpreter-first stage, but the target language scope is larger than the currently implemented subset.
+Small C++23 language implementation project built around a handwritten AST, a `cpp-peglib` parser, and a tree-walk interpreter. The repository is still in an interpreter-first phase, but it already supports more than the original arithmetic-only subset.
 
-## Target Language Scope
+## What The Code Implements Today
 
-### Included
+The current implementation is a direct parser -> AST -> tree interpreter pipeline with these language features:
 
-- Integer type
-- Float type
-- Boolean type
-- Nothing type
-- String type with `\n`, `\t`, `\\`, `\"` escape sequences
-- Array type with 0-based indexing
-- Table type
-- Closure type
-- `let` declarations with required initializer
-- Assignment to variables
-- Assignment to array index: `arr[0] = 5`
-- Assignment to table bracket access: `t["key"] = 5`
-- Assignment to table dot access: `t.key = 5`
-- `if` / `else if` / `else`
-- `while`
-- C-style numeric `for`
-- `break`
-- `continue`
-- `return`
-- Multiple function definitions
-- Function parameters
-- Function arguments
-- Call expressions: `foo(1, 2)`
-- First-class functions
-- Closures with captured environment
-- Arithmetic: `+`, `-`, `*`, `/`, `%`
-- Mixed int/float arithmetic with float promotion
-- Relational: `<`, `>`, `<=`, `>=`
-- Equality: `==`, `!=`
-- Logical `&&`, `||` with short-circuit evaluation
-- Unary minus: `-x`
-- Logical not: `!x`
-- String concatenation: `..`
-- Length operator: `#`
-- Array literals: `[1, 2, 3]`
-- Table literals: `{name: "emre", age: 21}`
-- Array indexing: `arr[0]`
-- Table dot access: `t.name`
-- Table bracket access: `t["name"]`
-- Lexical block scoping with shadowing
-- `print` with multiple arguments
-- `debugPrint`
-- Expression statements
-- Line comments: `//`
-- `shared_ptr` for strings, arrays, tables, and closures
-- Built-in `type()` returning the runtime type as a string
-
-### Not Included
-
-- String interpolation
-- String methods
-- Lambdas
-- Try/catch/throw
-- Block comments
-- Match/switch
-- For-in / iterator protocol
-- Multiple return values
-- Multiple assignment
-- Varargs
-- Destructuring
-- Ternary expression
-- Do-while / repeat-until
-- Type annotations
-- Standard library modules
-- Module system / imports
-- Operator overloading / metatables
-- Coroutines
-- Native function registration API
-- Negative indexing
-- `tostring` / `tonumber` conversions
-- Real tracing GC in the VM tier
-
-## Current Implemented Subset
-
-The code in this repository currently implements a smaller interpreter-first subset:
-
-- Multiple top-level function definitions with required `fn main()` in CLI mode
-- `debugPrint(...)`
+- Multiple top-level function definitions
+- Required `fn main()` in CLI execution
+- `print(...)` with an optional expression and no automatic newline
 - `let` declarations with required initializers
-- Assignment to existing variables
+- Assignment to an existing variable
+- `return` with and without a value
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
 - Zero-argument function calls in expression and statement position
 - Arithmetic `+`, `-`, `*`, `/` on integers only
-- Relational `<`, `>`, `<=`, `>=` on integers only
+- Relational `<`, `<=`, `>`, `>=` on integers only
 - Equality `==`, `!=` across all current runtime value types
-- Logical `&&`, `||` with short-circuit evaluation
-- `if`, `else if`, `else`
-- `while`
-- C-style numeric `for`
-- `break`
-- `continue`
+- Logical `&&`, `||` with short-circuit behavior
 - Parenthesized expressions
 - Nested `{ ... }` blocks
-- Lexical block scopes with shadowing
+- `if` / `else if` / `else`
+- `while`
+- C-style `for let i = init; condition; i = update { ... }`
+- `break`
+- `continue`
 - `//` line comments
+- Lexical block scoping with shadowing
 
-Current implementation limits worth keeping in mind:
+Current implementation limits:
 
-- Functions do not yet support parameters or return values
-- Function calls are currently zero-argument only and always return `nothing`
-- No arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
-- Arithmetic on non-integers is a runtime error
-- Relational operators on non-integers are a runtime error
-- Division by zero is a runtime error
-- Errors are surfaced as `std::runtime_error` messages written to stderr
+- Functions do not yet support parameters
+- Function calls are currently zero-argument only
+- Functions implicitly return `nothing` when no `return` is executed
+- There are no arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
+- Runtime values are currently only `int64_t`, `bool`, and `nothing`
+- Truthiness currently treats `false`, `nothing`, and integer `0` as falsy; nonzero integers and `true` are truthy
+- Logical operators return booleans, not original operands
+- Equality on mismatched runtime types evaluates to `false`
+- `break` and `continue` outside loops are detected at runtime, not during parsing
+- Parse and runtime failures are surfaced as `std::runtime_error` messages printed to `stderr`
 
-## Build And Run
+## Architecture
+
+- `src/parser/language_grammar.h`: PEG grammar string
+- `src/parser/parser.cpp`: parser construction and semantic actions that build the AST
+- `src/ast/ast.h`: AST node definitions
+- `src/ast/ast_printer.cpp`: source-like AST pretty printer used by `--debug`
+- `src/tree_interpreter/tree_interpreter.cpp`: runtime value model, scope handling, and execution
+- `src/main.cpp`: CLI entry point, file loading, `--debug`, and top-level error reporting
+
+Implementation notes from the current code:
+
+- The parser uses `cpp-peglib` semantic values stored as `std::any`, which is why some AST children are held via `std::shared_ptr`
+- Functions are collected into a top-level function table before execution, so later-defined functions may be called earlier
+- Function calls execute in fresh call frames with their own scope stacks
+- Function execution converts statement-level control flow into final function results, with leaked `break` / `continue` rejected at the function boundary
+- `for` loop initializer scope is intentionally kept alive for the full loop
+- In `for`, `continue` still runs the update step before the next condition check
+- `--debug` prints the parsed AST back into a normalized source-like form before execution
+
+## Build
 
 ```sh
 make build
-./build/interpreter SOURCE
-./build/interpreter --debug SOURCE
-make clean
 ```
 
+Direct CMake is also supported:
+
+```sh
+cmake -S . -B build
+cmake --build build
+```
+
+Compiler/build details from the current build config:
+
+- CMake minimum version: `3.20`
+- Executable target: `interpreter`
+- Language standard: `C++23`
+- Clang/GCC warnings: `-Wall -Wextra -Wpedantic`
+
+## Run
+
+```sh
+./build/interpreter SOURCE
+./build/interpreter --debug SOURCE
+```
+
+CLI notes:
+
+- `SOURCE` must be a file path
+- `--debug` prints the AST and then executes the program
+- Invalid CLI usage prints `Usage: <program> [--debug] SOURCE`
+
 ## Tests
+
+The test suite is golden-file based.
+
+- Passing tests live in `tests/pass` as `.ee` + matching `.out`
+- Failing tests live in `tests/fail` as `.ee` + matching `.err`
+- Output and error text are exact-match checked with `diff`
+
+Useful commands:
 
 ```sh
 ./scripts/run_single_test.sh tests/pass/<name>.ee
@@ -133,35 +113,29 @@ make clean
 ./scripts/debug_test.sh tests/pass/<name>.ee
 ```
 
-CI runs:
-
-```sh
-make clean && make build
-./scripts/run_all_tests.sh
-```
-
 ## Current Grammar
 
 ```peg
 Program                    <- Function+
-Keyword                    <- KeywordFn / KeywordLet / KeywordDebugPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak
+Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
 KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
 KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
-KeywordDebugPrint          <- < 'debugPrint' ![a-zA-Z0-9_] >
+KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
 KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
 KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
 KeywordWhile               <- < 'while' ![a-zA-Z0-9_] >
 KeywordFor                 <- < 'for' ![a-zA-Z0-9_] >
 KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
 KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
+KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
 KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
 KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
 KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
 
 Block                      <- '{' Statement* '}'
 Function                   <- ~KeywordFn Identifier '(' ')' Block
-Statement                  <- Block / DebugPrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ForStatement / FunctionCallStatement
-DebugPrintStatement        <- ~KeywordDebugPrint '(' Expression? ')' ';'
+Statement                  <- Block / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
+PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
 LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
 AssignmentStatement        <- Identifier '=' Expression ';'
 IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
@@ -170,6 +144,7 @@ ForStatement               <- ~KeywordFor LetStatement Expression ';' ForUpdate 
 ForUpdate                  <- Identifier '=' Expression
 ContinueStatement          <- ~KeywordContinue ';'
 BreakStatement             <- ~KeywordBreak ';'
+ReturnStatement            <- ~KeywordReturn Expression? ';'
 FunctionCallStatement      <- FunctionCallExpression ';'
 
 Expression                 <- InfixExpression(Atom, InfixOperator)
@@ -203,46 +178,29 @@ LineComment                <- '//' (!End .)* &End
 
 ## Semantics Notes
 
-- `debugPrint` prints with no automatic newline
+- `print` prints values with no automatic newline
 - Division is integer division
-- Reserved keywords cannot be used as identifiers: `fn`, `let`, `debugPrint`, `if`, `else`, `while`, `for`, `continue`, `break`, `true`, `false`, `nothing`
+- Reserved keywords cannot be used as identifiers
 - Blocks introduce scopes
-- `if` conditions use the same truthiness rules as logical operators
-- `let` declares in the current scope only
-- Variable lookup and assignment search from innermost scope outward
+- `let` declares only in the current scope
+- Variable lookup and assignment search from innermost visible scope outward
 - Inner scopes may shadow outer variables
-- `==` and `!=` are valid across all current runtime value types; cross-type equality evaluates to `false`
-- `&&` and `||` short-circuit and return booleans
-- Logical truthiness currently treats `false`, `nothing`, and `0` as falsy; nonzero integers and `true` are truthy
-- `if` / `else if` / `else` execute the first truthy branch only
-- `while` uses the same truthiness rules as `if` and logical operators
-- `for` uses the shape `for let i = init; condition; i = update { ... }`
-- Function lookup is by top-level name and later-defined functions may still be called
-- Function calls currently execute in a fresh call frame with their own scope stack
+- `if`, `while`, and logical operators all use the same truthiness rules
+- `return;` returns `nothing`, and `return expr;` returns the evaluated value
 - Function calls used as statements must evaluate to `nothing`
-- The `for` initializer variable lives for the full loop and is not visible after the loop ends
 - `break` exits the nearest enclosing loop
-- `continue` skips the rest of the current loop iteration and reevaluates the loop condition
-- In `for`, `continue` still runs the update step before reevaluating the loop condition
-- `break` and `continue` outside a loop are runtime errors
-
-## Future Direction
-
-The target language scope above is the intended near-to-medium-term direction for the project. As those features land, update the parser, AST, interpreter, debug printer, tests, and docs together so the implemented subset stays explicit.
+- `continue` skips the rest of the current iteration
 
 ## Project Layout
 
-- `src/main.cpp`: CLI entry point
-- `src/parser/parser.cpp`: parser construction and semantic actions
-- `src/parser/language_grammar.h`: PEG grammar string
-- `src/ast/ast.h`: AST definitions
-- `src/ast/ast_printer.cpp`: AST debug printer
-- `src/tree_interpreter/tree_interpreter.cpp`: tree-walk runtime
-- `src/common/overloaded.h`: `std::visit` helper
-- `tests/pass`, `tests/fail`: golden tests
-- `scripts`: test/debug scripts
+- `src/`: implementation
+- `tests/pass`: programs expected to succeed
+- `tests/fail`: programs expected to fail
+- `scripts/`: test and debug helpers
+- `third_party/peglib.h`: vendored parser dependency
+- `docs/language_design.md`: target language direction
+- `docs/roadmap.md`: ordered future work
 
-## Docs
+## Future Direction
 
-- `docs/language_design.md`: future language direction
-- `docs/roadmap.md`: feature roadmap
+The intended language scope is larger than the subset above. Planned directions include richer value types, real function parameters and returns, expression statements, built-ins beyond `print`, and eventually a VM/GC/JIT path. The docs under `docs/` describe that direction; this README is the source of truth for what the code implements today.

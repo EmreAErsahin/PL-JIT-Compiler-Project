@@ -3,11 +3,11 @@ fn main() {
     while (i < 4) {
         i = i + 1;
         if (i == 1) {
-            debugPrint(1);
+            print(1);
         } else if (i == 2) {
             continue;
         } else {
-            debugPrint(i);
+            print(i);
         }
     }
 }

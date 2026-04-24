@@ -1,5 +1,5 @@
 fn main() {
     {
-        debugPrint(missing);
+        print(missing);
     }
 }

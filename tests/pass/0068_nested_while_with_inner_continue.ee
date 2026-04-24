@@ -8,8 +8,8 @@ fn main() {
             if (inner == 2) {
                 continue;
             }
-            debugPrint(inner);
+            print(inner);
         }
-        debugPrint(outer);
+        print(outer);
     }
 }
