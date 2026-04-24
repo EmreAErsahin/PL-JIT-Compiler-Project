@@ -17,8 +17,9 @@ namespace parser_grammar {
       ParameterList              <- Identifier (',' Identifier)*
       EmptyParameters            <- ''
       Block                      <- '{' Statement* '}'
-      Statement                  <- Block / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
+      Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
       PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
+      PrintlnStatement           <- ~KeywordPrintln '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
       IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
@@ -42,10 +43,11 @@ namespace parser_grammar {
       Integer                    <- < '-'? [0-9]+ >
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
-      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
+      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
       KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
+      KeywordPrintln             <- < 'println' ![a-zA-Z0-9_] >
       KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
       KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
       KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >

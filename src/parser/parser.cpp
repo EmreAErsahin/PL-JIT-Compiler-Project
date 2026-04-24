@@ -30,8 +30,17 @@ namespace parser {
                      .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
                      .operator_ = operator_value,
                      .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-                     }
+      }
     };
+  }
+
+  pl_ast::PrintStatement MakePrintStatement(const peg::SemanticValues& semantic_values, const bool new_line) {
+    pl_ast::PrintStatement print_statement;
+    print_statement.new_line_ = new_line;
+    if (!semantic_values.empty()) {
+      print_statement.print_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+    }
+    return print_statement;
   }
 
   peg::parser MakeParser() {
@@ -70,11 +79,11 @@ namespace parser {
     parser["EmptyParameters"] = [](const peg::SemanticValues&) { return std::vector<pl_ast::Identifier>{}; };
 
     parser["PrintStatement"] = [](const peg::SemanticValues& semantic_values) {
-      pl_ast::PrintStatement print_statement;
-      if (!semantic_values.empty()) {
-        print_statement.print_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-      }
-      return pl_ast::StatementVariant{print_statement};
+      return pl_ast::StatementVariant{MakePrintStatement(semantic_values, false)};
+    };
+
+    parser["PrintlnStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::StatementVariant{MakePrintStatement(semantic_values, true)};
     };
 
     parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {

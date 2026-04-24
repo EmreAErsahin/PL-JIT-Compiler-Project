@@ -7,42 +7,42 @@ fn main() {
 
     // print with no argument prints nothing
     print();
-    print((x + y) * (x - y));
-    print(x > y);
-    print(x == y);
-    print(value == nothing);
+    println((x + y) * (x - y));
+    println(x > y);
+    println(x == y);
+    println(value == nothing);
 
     if ((x > y) && (flag || 1)) {
-        print(1);
+        println(1);
     } else {
-        print(0);
+        println(0);
     }
 
     {
         let x = 0;
-        print(x);
+        println(x);
 
         if (x) {
-            print(9);
+            println(9);
         } else if (nothing) {
-            print(8);
+            println(8);
         } else {
-            print(7);
+            println(7);
         }
     }
 
     y = x / 3;
-    print(y);
+    println(y);
 
     if (flag) {
-        print(4);
+        println(4);
     } else if (y != 2) {
-        print(5);
+        println(5);
     } else {
-        print(6);
+        println(6);
     }
 
     flag = true;
-    print(flag && (y >= 2));
-    print((0 || flag) && (nothing || true));
+    println(flag && (y >= 2));
+    println((0 || flag) && (nothing || true));
 }
