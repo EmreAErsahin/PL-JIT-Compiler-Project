@@ -211,7 +211,7 @@ namespace tree_interpreter {
    public:
     void Run(const pl_ast::Program& program) {
       const pl_ast::Function& main_function = runtime_state_.BuildFunctionTableAndRequireMain(program);
-      ExecuteFunction(main_function);
+      ExecuteFunction(main_function, {});
     }
 
    private:
@@ -236,10 +236,18 @@ namespace tree_interpreter {
       return {*left_integer, *right_integer};
     }
 
-    Value ExecuteFunction(const pl_ast::Function& function) {
-      RuntimeState::CallFrameGuard call_frame_guard(runtime_state_);
+    Value ExecuteFunction(const pl_ast::Function& function, const std::vector<Value>& arguments) {
+      if (arguments.size() != function.parameters_.size()) {
+        throw std::runtime_error("ExecuteFunction: argument count doesn't match parameter count");
+      }
 
-      const auto [control_flow, return_value] = ExecuteBlock(function.function_block_);
+      RuntimeState::CallFrameGuard call_frame_guard(runtime_state_);
+      RuntimeState::ScopeGuard function_level_scope(runtime_state_);
+      for (size_t argument_index = 0; argument_index < arguments.size(); ++argument_index) {
+        runtime_state_.DeclareVariable(function.parameters_[argument_index].name_, arguments[argument_index]);
+      }
+
+      const auto [control_flow, return_value] = ExecuteBlock(function.function_block_, false);
 
       switch (control_flow) {
         case ControlFlow::kNormal: return NothingValue{};
@@ -251,13 +259,7 @@ namespace tree_interpreter {
       throw std::runtime_error("ExecuteFunction: unknown control flow");
     }
 
-    ExecutionResult ExecuteBlock(const pl_ast::BlockPointer& block_pointer) {
-      if (!block_pointer) {
-        throw std::runtime_error("ExecuteBlock: null block pointer");
-      }
-
-      RuntimeState::ScopeGuard block_scope(runtime_state_);
-
+    ExecutionResult ExecuteStatementsInBlock(const pl_ast::BlockPointer& block_pointer) {
       ExecutionResult execution_result;
       for (const auto& statement_variant : block_pointer->statements_) {
         execution_result = ExecuteStatement(statement_variant);
@@ -265,16 +267,30 @@ namespace tree_interpreter {
           break;
         }
       }
-
       return execution_result;
+    }
+
+    ExecutionResult ExecuteBlock(const pl_ast::BlockPointer& block_pointer, const bool create_scope = true) {
+      if (!block_pointer) {
+        throw std::runtime_error("ExecuteBlock: null block pointer");
+      }
+
+      // With normal blocks like a while block, we create a scope for the variables
+      // If we are executing a function block, we don't need to create a top level bc ExecuteFunction already does for parameters/args
+      if (create_scope) {
+        RuntimeState::ScopeGuard block_scope(runtime_state_);
+
+        return ExecuteStatementsInBlock(block_pointer);
+      }
+      return ExecuteStatementsInBlock(block_pointer);
     }
 
     ExecutionResult ExecuteStatement(const pl_ast::StatementVariant& statement_variant) {
       return std::visit(
         template_helpers::Overloaded{
           [this](const pl_ast::PrintStatement& print_statement) {
-            if (print_statement.expression_) {
-              PrintValue(EvaluateExpression(*print_statement.expression_));
+            if (print_statement.print_expression_) {
+              PrintValue(EvaluateExpression(*print_statement.print_expression_));
             }
             return ExecutionResult{ControlFlow::kNormal};
           },
@@ -392,7 +408,16 @@ namespace tree_interpreter {
             );
           },
           [this](const pl_ast::FunctionCallExpression& function_call_expression) -> Value {
-            return ExecuteFunction(runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_));
+            // Need to evaluate all the arguments to pass to execute function
+            std::vector<Value> evaluated_arguments;
+            evaluated_arguments.reserve(function_call_expression.arguments_.size());
+            for (const auto& argument : function_call_expression.arguments_) {
+              evaluated_arguments.push_back(EvaluateExpression(*argument));
+            }
+
+            return ExecuteFunction(
+              runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_), std::move(evaluated_arguments)
+            );
           },
         },
         expression_variant

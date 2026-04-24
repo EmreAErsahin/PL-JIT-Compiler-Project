@@ -45,97 +45,34 @@ namespace parser {
       return pl_ast::Identifier{semantic_values.token_to_string()};
     };
 
-    parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
+    parser["Function"] = [](const peg::SemanticValues& semantic_values) {
+      pl_ast::Function function;
+
+      function.identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
+      function.parameters_ = CastSemanticValueTo<std::vector<pl_ast::Identifier>>(semantic_values, 1);
+
+      function.function_block_ = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 2));
+
+      return function;
     };
 
-    parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.choice() == 0}};
-    };
+    parser["ParameterList"] = [](const peg::SemanticValues& semantic_values) {
+      std::vector<pl_ast::Identifier> parameters;
+      parameters.reserve(semantic_values.size());
 
-    parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
-
-    parser["InfixOperator"] = [](const peg::SemanticValues& semantic_values) {
-      const auto operator_token = semantic_values.token_to_string();
-      if (operator_token == "+") {
-        return InfixOperator{pl_ast::ArithmeticOperator::kAdd};
-      } else if (operator_token == "-") {
-        return InfixOperator{pl_ast::ArithmeticOperator::kSubtract};
-      } else if (operator_token == "*") {
-        return InfixOperator{pl_ast::ArithmeticOperator::kMultiply};
-      } else if (operator_token == "/") {
-        return InfixOperator{pl_ast::ArithmeticOperator::kDivide};
-      } else if (operator_token == "<") {
-        return InfixOperator{pl_ast::RelationalOperator::kLessThan};
-      } else if (operator_token == "<=") {
-        return InfixOperator{pl_ast::RelationalOperator::kLessThanOrEqual};
-      } else if (operator_token == ">") {
-        return InfixOperator{pl_ast::RelationalOperator::kGreaterThan};
-      } else if (operator_token == ">=") {
-        return InfixOperator{pl_ast::RelationalOperator::kGreaterThanOrEqual};
-      } else if (operator_token == "==") {
-        return InfixOperator{pl_ast::EqualityOperator::kEqual};
-      } else if (operator_token == "!=") {
-        return InfixOperator{pl_ast::EqualityOperator::kNotEqual};
-      } else if (operator_token == "&&") {
-        return InfixOperator{pl_ast::LogicalOperator::kAnd};
-      } else if (operator_token == "||") {
-        return InfixOperator{pl_ast::LogicalOperator::kOr};
-      }
-      throw std::runtime_error("InfixOperator: unsupported operator");
-    };
-
-    parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}};
-    };
-
-    parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{
-        pl_ast::FunctionCallExpression{.function_name_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}
-      };
-    };
-
-    parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-    };
-
-    parser["Expression"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-    };
-
-    parser["InfixExpression"] = [](const peg::SemanticValues& semantic_values) {
-      auto left_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-
-      if (semantic_values.size() == 1) {
-        return left_operand;
+      for (size_t parameter_index = 0; parameter_index < semantic_values.size(); ++parameter_index) {
+        parameters.push_back(CastSemanticValueTo<pl_ast::Identifier>(semantic_values, parameter_index));
       }
 
-      const auto infix_operator = CastSemanticValueTo<InfixOperator>(semantic_values, 1);
-      auto right_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2);
-
-      return std::visit(
-        template_helpers::Overloaded{
-          [&left_operand, &right_operand](const pl_ast::ArithmeticOperator operator_value) -> pl_ast::ExpressionVariant {
-            return MakeBinaryExpression<pl_ast::ArithmeticExpression>(std::move(left_operand), operator_value, std::move(right_operand));
-          },
-          [&left_operand, &right_operand](const pl_ast::RelationalOperator operator_value) -> pl_ast::ExpressionVariant {
-            return MakeBinaryExpression<pl_ast::RelationalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
-          },
-          [&left_operand, &right_operand](const pl_ast::EqualityOperator operator_value) -> pl_ast::ExpressionVariant {
-            return MakeBinaryExpression<pl_ast::EqualityExpression>(std::move(left_operand), operator_value, std::move(right_operand));
-          },
-          [&left_operand, &right_operand](const pl_ast::LogicalOperator operator_value) -> pl_ast::ExpressionVariant {
-            return MakeBinaryExpression<pl_ast::LogicalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
-          },
-        },
-        infix_operator
-      );
+      return parameters;
     };
+
+    parser["EmptyParameters"] = [](const peg::SemanticValues&) { return std::vector<pl_ast::Identifier>{}; };
 
     parser["PrintStatement"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::PrintStatement print_statement;
       if (!semantic_values.empty()) {
-        print_statement.expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+        print_statement.print_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
       }
       return pl_ast::StatementVariant{print_statement};
     };
@@ -243,6 +180,110 @@ namespace parser {
       }};
     };
 
+    parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
+    };
+
+    parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::BoolLiteralExpression{semantic_values.choice() == 0}};
+    };
+
+    parser["Nothing"] = [](const peg::SemanticValues&) { return pl_ast::ExpressionVariant{pl_ast::NothingLiteralExpression{}}; };
+
+    parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
+      pl_ast::FunctionCallExpression function_call_expression;
+      function_call_expression.function_name_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
+      function_call_expression.arguments_ = CastSemanticValueTo<std::vector<pl_ast::CopyableExpressionPointer>>(semantic_values, 1);
+
+      return pl_ast::ExpressionVariant{std::move(function_call_expression)};
+    };
+
+    parser["ArgumentList"] = [](const peg::SemanticValues& semantic_values) {
+      std::vector<pl_ast::CopyableExpressionPointer> arguments;
+      arguments.reserve(semantic_values.size());
+
+      for (size_t argument_index = 0; argument_index < semantic_values.size(); ++argument_index) {
+        arguments.push_back(
+          std::make_shared<pl_ast::ExpressionVariant>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, argument_index))
+        );
+      }
+
+      return arguments;
+    };
+
+    parser["EmptyArguments"] = [](const peg::SemanticValues&) { return std::vector<pl_ast::CopyableExpressionPointer>{}; };
+
+    parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}};
+    };
+
+    parser["InfixOperator"] = [](const peg::SemanticValues& semantic_values) {
+      const auto operator_token = semantic_values.token_to_string();
+      if (operator_token == "+") {
+        return InfixOperator{pl_ast::ArithmeticOperator::kAdd};
+      } else if (operator_token == "-") {
+        return InfixOperator{pl_ast::ArithmeticOperator::kSubtract};
+      } else if (operator_token == "*") {
+        return InfixOperator{pl_ast::ArithmeticOperator::kMultiply};
+      } else if (operator_token == "/") {
+        return InfixOperator{pl_ast::ArithmeticOperator::kDivide};
+      } else if (operator_token == "<") {
+        return InfixOperator{pl_ast::RelationalOperator::kLessThan};
+      } else if (operator_token == "<=") {
+        return InfixOperator{pl_ast::RelationalOperator::kLessThanOrEqual};
+      } else if (operator_token == ">") {
+        return InfixOperator{pl_ast::RelationalOperator::kGreaterThan};
+      } else if (operator_token == ">=") {
+        return InfixOperator{pl_ast::RelationalOperator::kGreaterThanOrEqual};
+      } else if (operator_token == "==") {
+        return InfixOperator{pl_ast::EqualityOperator::kEqual};
+      } else if (operator_token == "!=") {
+        return InfixOperator{pl_ast::EqualityOperator::kNotEqual};
+      } else if (operator_token == "&&") {
+        return InfixOperator{pl_ast::LogicalOperator::kAnd};
+      } else if (operator_token == "||") {
+        return InfixOperator{pl_ast::LogicalOperator::kOr};
+      }
+      throw std::runtime_error("InfixOperator: unsupported operator");
+    };
+
+    parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+    };
+
+    parser["Expression"] = [](const peg::SemanticValues& semantic_values) {
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+    };
+
+    parser["InfixExpression"] = [](const peg::SemanticValues& semantic_values) {
+      auto left_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+
+      if (semantic_values.size() == 1) {
+        return left_operand;
+      }
+
+      const auto infix_operator = CastSemanticValueTo<InfixOperator>(semantic_values, 1);
+      auto right_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2);
+
+      return std::visit(
+        template_helpers::Overloaded{
+          [&left_operand, &right_operand](const pl_ast::ArithmeticOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::ArithmeticExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::RelationalOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::RelationalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::EqualityOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::EqualityExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+          [&left_operand, &right_operand](const pl_ast::LogicalOperator operator_value) -> pl_ast::ExpressionVariant {
+            return MakeBinaryExpression<pl_ast::LogicalExpression>(std::move(left_operand), operator_value, std::move(right_operand));
+          },
+        },
+        infix_operator
+      );
+    };
+
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
       return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
     };
@@ -256,14 +297,6 @@ namespace parser {
       }
 
       return pl_ast::StatementVariant{std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)})};
-    };
-
-    // Using designated initializers for clarity & safety against changing field positions
-    parser["Function"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::Function{
-        .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
-        .function_block_ = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1)),
-      };
     };
 
     parser["Program"] = [](const peg::SemanticValues& semantic_values) {

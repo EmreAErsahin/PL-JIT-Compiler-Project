@@ -1,0 +1,8 @@
+fn bump(x) {
+    x = x + 4;
+    return x;
+}
+
+fn main() {
+    print(bump(6));
+}
