@@ -1,0 +1,7 @@
+fn bad(x, x) {
+    return x;
+}
+
+fn main() {
+    print(bad(1, 2));
+}

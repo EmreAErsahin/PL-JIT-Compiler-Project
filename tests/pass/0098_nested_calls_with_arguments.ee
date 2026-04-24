@@ -1,0 +1,11 @@
+fn add(a, b) {
+    return a + b;
+}
+
+fn double(x) {
+    return add(x, x);
+}
+
+fn main() {
+    print(add(double(3), add(4, 5)));
+}

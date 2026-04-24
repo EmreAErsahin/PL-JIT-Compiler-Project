@@ -20,14 +20,6 @@ namespace pl_ast {
 
   struct NothingLiteralExpression {};
 
-  enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide };
-
-  enum class RelationalOperator { kLessThan, kLessThanOrEqual, kGreaterThan, kGreaterThanOrEqual };
-
-  enum class EqualityOperator { kEqual, kNotEqual };
-
-  enum class LogicalOperator { kAnd, kOr };
-
   // Variables, function names
   struct Identifier {
     std::string name_;
@@ -42,11 +34,8 @@ namespace pl_ast {
   struct RelationalExpression;
   struct EqualityExpression;
   struct LogicalExpression;
+  struct FunctionCallExpression;
   // clang-format on
-
-  struct FunctionCallExpression {
-    Identifier function_name_;
-  };
 
   using ExpressionVariant = std::variant<
     IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, IdentifierExpression, ArithmeticExpression,
@@ -56,11 +45,15 @@ namespace pl_ast {
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
   using CopyableExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
+  enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide };
+
   struct ArithmeticExpression {
     CopyableExpressionPointer left_operand_;
     ArithmeticOperator operator_;
     CopyableExpressionPointer right_operand_;
   };
+
+  enum class RelationalOperator { kLessThan, kLessThanOrEqual, kGreaterThan, kGreaterThanOrEqual };
 
   struct RelationalExpression {
     CopyableExpressionPointer left_operand_;
@@ -68,11 +61,15 @@ namespace pl_ast {
     CopyableExpressionPointer right_operand_;
   };
 
+  enum class EqualityOperator { kEqual, kNotEqual };
+
   struct EqualityExpression {
     CopyableExpressionPointer left_operand_;
     EqualityOperator operator_;
     CopyableExpressionPointer right_operand_;
   };
+
+  enum class LogicalOperator { kAnd, kOr };
 
   struct LogicalExpression {
     CopyableExpressionPointer left_operand_;
@@ -80,8 +77,13 @@ namespace pl_ast {
     CopyableExpressionPointer right_operand_;
   };
 
+  struct FunctionCallExpression {
+    Identifier function_name_;
+    std::vector<CopyableExpressionPointer> arguments_;
+  };
+
   struct PrintStatement {
-    std::optional<ExpressionVariant> expression_;
+    std::optional<ExpressionVariant> print_expression_;
   };
 
   // Bare declarations are not supported
@@ -143,6 +145,7 @@ namespace pl_ast {
 
   struct Function {
     Identifier identifier_;
+    std::vector<Identifier> parameters_;
     // Makes parsing actions more simple to store pointer here
     BlockPointer function_block_;
   };

@@ -12,6 +12,30 @@ namespace ast_walk {
     return std::string(depth, '\t');
   }
 
+  std::string ToString(const pl_ast::ExpressionVariant& expression_variant);
+
+  std::string ToString(const std::vector<pl_ast::Identifier>& identifiers) {
+    std::string joined_identifiers;
+    for (size_t current_identifier = 0; current_identifier < identifiers.size(); ++current_identifier) {
+      if (current_identifier != 0) {
+        joined_identifiers += ", ";
+      }
+      joined_identifiers += identifiers[current_identifier].name_;
+    }
+    return joined_identifiers;
+  }
+
+  std::string ToString(const std::vector<pl_ast::CopyableExpressionPointer>& arguments) {
+    std::string joined_arguments;
+    for (size_t current_argument = 0; current_argument < arguments.size(); ++current_argument) {
+      if (current_argument != 0) {
+        joined_arguments += ", ";
+      }
+      joined_arguments += ToString(*arguments[current_argument]);
+    }
+    return joined_arguments;
+  }
+
   std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
     switch (arithmetic_operator) {
       case pl_ast::ArithmeticOperator::kAdd: return "+";
@@ -84,7 +108,7 @@ namespace ast_walk {
           );
         },
         [](const pl_ast::FunctionCallExpression& function_call_expression) -> std::string {
-          return std::format("{}()", function_call_expression.function_name_.name_);
+          return std::format("{}({})", function_call_expression.function_name_.name_, ToString(function_call_expression.arguments_));
         },
         [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
@@ -103,8 +127,8 @@ namespace ast_walk {
         template_helpers::Overloaded{
           [&block_string, depth](const pl_ast::PrintStatement& print_statement) {
             block_string += Indentation(depth) + "print(";
-            if (print_statement.expression_) {
-              block_string += ToString(*print_statement.expression_);
+            if (print_statement.print_expression_) {
+              block_string += ToString(*print_statement.print_expression_);
             }
             block_string += ");\n";
           },
@@ -167,7 +191,7 @@ namespace ast_walk {
             block_string += Indentation(depth) + "}\n";
           },
           [&block_string, depth](const pl_ast::FunctionCallStatement& function_call_statement) {
-            block_string += std::format("{}{}();\n", Indentation(depth), function_call_statement.function_call_.function_name_.name_);
+            block_string += std::format("{}{};\n", Indentation(depth), ToString(pl_ast::ExpressionVariant{function_call_statement.function_call_}));
           }
         },
         statement_variant
@@ -178,8 +202,10 @@ namespace ast_walk {
 
   std::string ToString(const pl_ast::Program& program) {
     std::string program_string;
-    for (const auto& [identifier, function_block] : program.functions_) {
-      program_string += std::format("fn {}() {{\n{}}}\n", identifier.name_, ToString(function_block, 1));
+    for (const auto& function : program.functions_) {
+      program_string += std::format(
+        "fn {}({}) {{\n{}}}\n", function.identifier_.name_, ToString(function.parameters_), ToString(function.function_block_, 1)
+      );
     }
     return program_string;
   }

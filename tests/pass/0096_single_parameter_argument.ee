@@ -1,0 +1,7 @@
+fn identity(x) {
+    return x;
+}
+
+fn main() {
+    print(identity(7));
+}

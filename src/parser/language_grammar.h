@@ -12,22 +12,11 @@ namespace parser_grammar {
   // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
   inline constexpr std::string_view kPegGrammar = R"(
       Program                    <- Function+
-      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
-      KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
-      KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
-      KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
-      KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
-      KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
-      KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
-      KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
-      KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
-      KeywordWhile               <- < 'while' ![a-zA-Z0-9_] >
-      KeywordFor                 <- < 'for' ![a-zA-Z0-9_] >
-      KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
-      KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
-      KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
+      Function                   <- ~KeywordFn Identifier '(' Parameters ')' Block
+      Parameters                 <- ParameterList / EmptyParameters
+      ParameterList              <- Identifier (',' Identifier)*
+      EmptyParameters            <- ''
       Block                      <- '{' Statement* '}'
-      Function                   <- ~KeywordFn Identifier '(' ')' Block
       Statement                  <- Block / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
       PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
@@ -42,14 +31,31 @@ namespace parser_grammar {
       FunctionCallStatement      <- FunctionCallExpression ';'
       Expression                 <- InfixExpression(Atom, InfixOperator)
       Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
+      FunctionCallExpression     <- Identifier '(' Arguments ')'
+      Arguments                  <- ArgumentList / EmptyArguments
+      ArgumentList               <- Expression (',' Expression)*
+      EmptyArguments             <- ''
       IdentifierExpression       <- Identifier
-      FunctionCallExpression     <- Identifier '(' ')'
       InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
+      Integer                    <- < '-'? [0-9]+ >
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
-      Integer                    <- < '-'? [0-9]+ >
+      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
+      KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
+      KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
+      KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
+      KeywordIf                  <- < 'if' ![a-zA-Z0-9_] >
+      KeywordElse                <- < 'else' ![a-zA-Z0-9_] >
+      KeywordTrue                <- < 'true' ![a-zA-Z0-9_] >
+      KeywordFalse               <- < 'false' ![a-zA-Z0-9_] >
+      KeywordNothing             <- < 'nothing' ![a-zA-Z0-9_] >
+      KeywordWhile               <- < 'while' ![a-zA-Z0-9_] >
+      KeywordFor                 <- < 'for' ![a-zA-Z0-9_] >
+      KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
+      KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
+      KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
       InfixExpression(A, O)      <- A (O A)* {
         precedence
           L ||

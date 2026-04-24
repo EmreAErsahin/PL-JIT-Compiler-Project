@@ -1,0 +1,7 @@
+fn combine(left, right, extra) {
+    return left + right + extra;
+}
+
+fn main() {
+    print(combine(1 + 2, 3 * 4, 5));
+}

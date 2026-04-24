@@ -10,7 +10,7 @@ This repository is currently a small C++23 interpreter project built around a ha
 - Current runtime model: dynamically typed values implemented as `std::variant<int64_t, bool, NothingValue>`
 - Current program model: multiple top-level functions, with CLI execution starting at `main`
 - Testing model: golden-file tests comparing exact stdout for passing cases and exact stderr for failing cases
-- Long-term direction: larger scripting language plus VM / GC / JIT, documented in `README.md` and `docs/`
+- Long-term direction: larger scripting language plus VM / GC / JIT, documented in `README.md`
 
 ## Project Layout
 
@@ -25,9 +25,7 @@ This repository is currently a small C++23 interpreter project built around a ha
 - `tests/pass`: programs expected to succeed with matching `.out`
 - `tests/fail`: programs expected to fail with matching `.err`
 - `scripts`: shell runners for one test, passing tests, failing tests, all tests, and debug runs
-- `README.md`: best high-level source of truth for current implemented subset vs target language scope
-- `docs/language_design.md`: intended language direction, not current implementation contract
-- `docs/roadmap.md`: ordered backlog of major future work
+- `README.md`: source of truth for current implementation, workflow, and future direction summary
 
 ## Build And Verification
 
@@ -50,13 +48,15 @@ The current code implements this subset today:
 
 - Multiple top-level function definitions
 - Required `fn main()` in CLI execution
+- Function parameters
+- Function arguments
 - `print(...)` with optional expression and no automatic newline
 - `let` declarations with required initializer
 - Assignment to an existing variable
 - `return` with and without a value
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
-- Zero-argument function calls in expression and statement position
+- Function calls in expression and statement position
 - Arithmetic `+`, `-`, `*`, `/` on integers only
 - Relational `<`, `<=`, `>`, `>=` on integers only
 - Equality `==`, `!=` across all current runtime value types
@@ -74,8 +74,6 @@ The current code implements this subset today:
 ## Important Current Constraints
 
 - The parser grammar is `Program <- Function+`
-- Functions do not yet support parameters
-- Function calls are currently zero-argument only
 - Functions implicitly return `nothing` when no `return` is executed
 - There are no arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
 - Runtime values are only `int64_t`, `bool`, and `NothingValue`
@@ -94,6 +92,7 @@ The current code implements this subset today:
 - Grammar text lives in `src/parser/language_grammar.h` and semantic actions live in `src/parser/parser.cpp`
 - `cpp-peglib` semantic values use `std::any`, so AST pieces stored during parsing must be copyable
 - That is why expression and block nodes use `std::shared_ptr` in specific AST locations
+- Parameter and argument list rules normalize empty and non-empty lists before parent actions consume them
 - Operator precedence is handled by `InfixExpression(...){ precedence ... }`
 
 ### AST
@@ -110,8 +109,9 @@ The current code implements this subset today:
 - The interpreter is a direct tree walk over the AST
 - Runtime state and AST execution are split between `RuntimeState` and `Interpreter` inside `src/tree_interpreter/tree_interpreter.cpp`
 - Scope management is stack-based via `RuntimeState` call frames and lexical scope stacks
-- `ScopeGuard` uses RAII to push/pop scopes for blocks and `for` initializer lifetime
+- `ScopeGuard` uses RAII to push/pop scopes for blocks, function top-level scope, and `for` initializer lifetime
 - Variable lookup and assignment search from innermost scope outward
+- Function calls evaluate arguments in the caller, then bind parameter values in the callee's top-level scope
 - Loop and function control flow bubbles through blocks using `ExecutionResult`
 - `continue` inside `for` still triggers the update step before the next condition check
 
@@ -138,9 +138,7 @@ The current code implements this subset today:
 ## Source Of Truth Rules
 
 - Use the code plus `README.md` as the source of truth for what is implemented today
-- Use `docs/language_design.md` for intended future design only
-- Use `docs/roadmap.md` for sequencing of upcoming major features
-- Do not assume README target-scope items already exist just because they are documented there
+- Keep future direction notes in `README.md` concise and clearly separated from implemented behavior
 
 ## Editing Guidance
 
@@ -179,4 +177,4 @@ When reviewing or modifying this repo, pay special attention to:
 
 ## Practical Default
 
-Assume this repository is still in a deliberately simple interpreter-first stage. Prefer direct implementations that preserve the current architecture and make the implemented subset explicit. Keep future-language ambitions documented, but do not code as if arrays, function parameters, closures, VM, GC, or JIT infrastructure already exist.
+Assume this repository is still in a deliberately simple interpreter-first stage. Prefer direct implementations that preserve the current architecture and make the implemented subset explicit. Keep future-language ambitions documented, but do not code as if arrays, closures, VM, GC, or JIT infrastructure already exist.
