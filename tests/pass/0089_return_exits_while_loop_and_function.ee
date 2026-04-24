@@ -1,0 +1,10 @@
+fn helper() {
+    while true {
+        return 11;
+    }
+    print(999);
+}
+
+fn main() {
+    print(helper());
+}

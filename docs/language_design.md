@@ -1,12 +1,33 @@
 # Language Design
 
-This document describes the target language, not just the subset implemented today.
+This document describes the target language direction, not just the subset implemented today.
+
+`README.md` is the source of truth for current behavior. Use this file for planned semantics and longer-term design intent.
 
 ## Goal
 
-Build an embeddable scripting language for C++ host applications.
+Build a small embeddable scripting language for C++ host applications.
 
-The rough direction is “Lua-like use case, different syntax and ergonomics.” The language should stay small enough to understand completely and simple enough to embed cleanly.
+The rough direction is Lua-like in use case, but with different syntax and clearer explicitness around scoping and declarations.
+
+## Current Baseline
+
+The existing implementation already establishes these design constraints:
+
+- Dynamically typed runtime
+- Braces-based blocks
+- Newlines are whitespace, not syntax
+- Explicit local declarations with `let`
+- Multiple top-level functions
+- CLI execution starting from `fn main()`
+- Lexical block scoping with shadowing
+- Tree-walk execution over a handwritten AST
+
+The current runtime value model is still intentionally small:
+
+- integers
+- booleans
+- `nothing`
 
 ## Main Differences From Lua
 
@@ -16,16 +37,17 @@ The rough direction is “Lua-like use case, different syntax and ergonomics.”
 - braces define blocks
 - `//` comments only
 - locals introduced explicitly with `let`
-- 0-based indexing is the likely direction
+- 0-based indexing is the planned direction for arrays
 
-## Core Design Decisions
+## Design Direction
 
-- Dynamically typed
-- No type annotations
-- Braces-based syntax
-- Newlines are whitespace, not syntax
-- Script and native functions should eventually use the same call syntax
-- CLI mode should require `main`; embedded mode should not
+The next language tiers are intended to grow from the current interpreter baseline without changing the broad shape of the language:
+
+- Keep a small core syntax
+- Preserve explicit local declaration with `let`
+- Keep script syntax usable both from the CLI and in embedded hosts
+- Make native and script functions converge on the same call model over time
+- Preserve lexical scoping rules as the language grows
 
 ## Planned Value Model
 
@@ -40,23 +62,10 @@ Planned core types:
 - tables
 - closures
 
-## Planned Semantics
+## Planned Core Features
 
-- Integer division while only integers exist
-- Blocks introduce lexical scopes
+This is the intended target scope for the current project phase, not a statement that all of it exists yet.
 
-Target language scope for the current project phase:
-
-### Included
-
-- Integer type
-- Float type
-- Boolean type
-- Nothing type
-- String type with `\n`, `\t`, `\\`, `\"` escape sequences
-- Array type with 0-based indexing
-- Table type
-- Closure type
 - `let` declarations with required initializer
 - Assignment to variables
 - Assignment to array index
@@ -89,18 +98,20 @@ Target language scope for the current project phase:
 - Table dot access
 - Table bracket access
 - Lexical block scoping with shadowing
-- `print` with multiple args
-- `debugPrint`
+- `print` with multiple arguments
+- `print` with no automatic newline as the minimal builtin output primitive
 - Expression statements
 - Line comments
-- `shared_ptr` for strings, arrays, tables, and closures
+- Shared heap-backed runtime objects where appropriate
 - Built-in `type()`
 
-### Not Included
+## Explicit Non-Goals For Now
+
+These are not currently part of the intended near-term surface area:
 
 - String interpolation
 - String methods
-- Lambdas
+- Lambdas as a separate syntax from named functions
 - Try/catch/throw
 - Block comments
 - Match/switch
@@ -116,12 +127,20 @@ Target language scope for the current project phase:
 - Module system / imports
 - Operator overloading / metatables
 - Coroutines
-- Native function registration API
+- Native function registration API stability guarantees yet
 - Negative indexing
-- `tostring` / `tonumber` conversions
-- Real tracing GC in the VM tier
+- Implicit `tostring` / `tonumber` conversions
+- A tracing GC before the runtime grows beyond the current interpreter stage
 
-Current implemented subset today is still smaller than that full target scope. Use `README.md` as the source of truth for what the code currently supports.
+## Semantics Direction
+
+Planned semantic principles:
+
+- Blocks introduce lexical scopes
+- Function calls should eventually support values in and values out, while preserving the current scope model
+- Native and script functions should eventually share one dispatch model
+- Embedded mode should not require a `main` entry point even though CLI mode does today
+- Simpler, explicit rules are preferred over magical coercions
 
 ## Embedding Direction
 
@@ -142,9 +161,9 @@ vm.call("main");
 vm.call("onPlayerEnter", {player_id});
 ```
 
-## Target PEG
+## Target Grammar Shape
 
-This is a target grammar shape, not the currently implemented one.
+This is a target grammar sketch, not the currently implemented grammar.
 
 ```peg
 Program        <- Function*

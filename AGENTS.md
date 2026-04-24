@@ -50,9 +50,10 @@ The current code implements this subset today:
 
 - Multiple top-level function definitions
 - Required `fn main()` in CLI execution
-- `debugPrint(...)` with optional expression and no automatic newline
+- `print(...)` with optional expression and no automatic newline
 - `let` declarations with required initializer
 - Assignment to an existing variable
+- `return` with and without a value
 - Integer, boolean, and `nothing` literals
 - Identifier expressions
 - Zero-argument function calls in expression and statement position
@@ -73,8 +74,9 @@ The current code implements this subset today:
 ## Important Current Constraints
 
 - The parser grammar is `Program <- Function+`
-- Functions do not yet support parameters or return values
-- Function calls are currently zero-argument only and always return `nothing`
+- Functions do not yet support parameters
+- Function calls are currently zero-argument only
+- Functions implicitly return `nothing` when no `return` is executed
 - There are no arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
 - Runtime values are only `int64_t`, `bool`, and `NothingValue`
 - Truthiness currently treats `false`, `nothing`, and integer `0` as falsy; nonzero integers and `true` are truthy
@@ -110,8 +112,8 @@ The current code implements this subset today:
 - Scope management is stack-based via `RuntimeState` call frames and lexical scope stacks
 - `ScopeGuard` uses RAII to push/pop scopes for blocks and `for` initializer lifetime
 - Variable lookup and assignment search from innermost scope outward
-- Loop control flow bubbles through blocks using `ControlFlow`
-- `continue` inside `for` still triggers the update step because the loop body returns `kContinue`, which is treated like non-break in the `for` handler
+- Loop and function control flow bubbles through blocks using `ExecutionResult`
+- `continue` inside `for` still triggers the update step before the next condition check
 
 ### Debug Output
 
@@ -177,4 +179,4 @@ When reviewing or modifying this repo, pay special attention to:
 
 ## Practical Default
 
-Assume this repository is still in a deliberately simple interpreter-first stage. Prefer direct implementations that preserve the current architecture and make the implemented subset explicit. Keep future-language ambitions documented, but do not code as if arrays, functions, returns, closures, VM, GC, or JIT infrastructure already exist.
+Assume this repository is still in a deliberately simple interpreter-first stage. Prefer direct implementations that preserve the current architecture and make the implemented subset explicit. Keep future-language ambitions documented, but do not code as if arrays, function parameters, closures, VM, GC, or JIT infrastructure already exist.

@@ -2,6 +2,6 @@ fn foo() {
 }
 
 fn main() {
-    debugPrint(foo() == nothing);
-    debugPrint(nothing == foo());
+    print(foo() == nothing);
+    print(nothing == foo());
 }

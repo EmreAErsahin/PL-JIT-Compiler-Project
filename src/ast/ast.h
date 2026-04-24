@@ -80,7 +80,7 @@ namespace pl_ast {
     CopyableExpressionPointer right_operand_;
   };
 
-  struct DebugPrintStatement {
+  struct PrintStatement {
     std::optional<ExpressionVariant> expression_;
   };
 
@@ -125,13 +125,17 @@ namespace pl_ast {
 
   struct BreakStatement {};
 
+  struct ReturnStatement {
+    std::optional<ExpressionVariant> return_expression_;
+  };
+
   struct FunctionCallStatement {
     FunctionCallExpression function_call_;
   };
 
   using StatementVariant = std::variant<
-    DebugPrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
-    BreakStatement, FunctionCallStatement>;
+    PrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
+    BreakStatement, ReturnStatement, FunctionCallStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;

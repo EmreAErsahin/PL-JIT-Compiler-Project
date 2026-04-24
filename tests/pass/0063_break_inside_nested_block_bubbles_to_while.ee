@@ -7,7 +7,7 @@ fn main() {
                 break;
             }
         }
-        debugPrint(i);
+        print(i);
     }
-    debugPrint(9);
+    print(9);
 }

@@ -1,5 +1,5 @@
-#ifndef debug_helpers_H
-#define debug_helpers_H
+#ifndef ast_printer_H
+#define ast_printer_H
 
 #include <string>
 
@@ -9,4 +9,4 @@ namespace ast_walk {
   std::string ToString(const pl_ast::Program& program);
 }
 
-#endif // debug_helpers_H
+#endif // ast_printer_H

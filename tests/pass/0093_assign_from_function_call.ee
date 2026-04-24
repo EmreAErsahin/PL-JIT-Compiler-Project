@@ -1,0 +1,9 @@
+fn one() {
+    return 1;
+}
+
+fn main() {
+    let x = 0;
+    x = one();
+    print(x);
+}

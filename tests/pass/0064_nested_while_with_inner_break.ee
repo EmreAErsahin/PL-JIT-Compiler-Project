@@ -5,9 +5,9 @@ fn main() {
         let inner = 0;
         while (true) {
             inner = inner + 1;
-            debugPrint(inner);
+            print(inner);
             break;
         }
-        debugPrint(outer);
+        print(outer);
     }
 }

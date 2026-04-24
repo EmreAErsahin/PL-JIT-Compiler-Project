@@ -1,0 +1,10 @@
+fn helper() {
+    {
+        return 7;
+    }
+    print(999);
+}
+
+fn main() {
+    print(helper());
+}

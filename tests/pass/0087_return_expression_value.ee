@@ -1,0 +1,7 @@
+fn helper() {
+    return 42;
+}
+
+fn main() {
+    print(helper());
+}

@@ -1,6 +1,6 @@
 fn main() {
     let trueValue = 7;
     let nothingValue = 8;
-    let debugPrintValue = trueValue + nothingValue;
-    debugPrint(debugPrintValue);
+    let printValue = trueValue + nothingValue;
+    print(printValue);
 }

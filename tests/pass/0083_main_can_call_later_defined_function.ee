@@ -1,9 +1,9 @@
 fn main() {
-    debugPrint(1);
+    print(1);
     helper();
-    debugPrint(3);
+    print(3);
 }
 
 fn helper() {
-    debugPrint(2);
+    print(2);
 }

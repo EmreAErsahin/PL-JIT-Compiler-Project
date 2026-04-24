@@ -101,10 +101,10 @@ namespace ast_walk {
     for (const auto& statement_variant : block_pointer->statements_) {
       std::visit(
         template_helpers::Overloaded{
-          [&block_string, depth](const pl_ast::DebugPrintStatement& debug_print_statement) {
-            block_string += Indentation(depth) + "debugPrint(";
-            if (debug_print_statement.expression_) {
-              block_string += ToString(*debug_print_statement.expression_);
+          [&block_string, depth](const pl_ast::PrintStatement& print_statement) {
+            block_string += Indentation(depth) + "print(";
+            if (print_statement.expression_) {
+              block_string += ToString(*print_statement.expression_);
             }
             block_string += ");\n";
           },
@@ -154,6 +154,13 @@ namespace ast_walk {
           },
           [&block_string, depth](const pl_ast::ContinueStatement&) { block_string += Indentation(depth) + "continue;\n"; },
           [&block_string, depth](const pl_ast::BreakStatement&) { block_string += Indentation(depth) + "break;\n"; },
+          [&block_string, depth](const pl_ast::ReturnStatement& return_statement) {
+            block_string += Indentation(depth) + "return";
+            if (return_statement.return_expression_) {
+              block_string += " " + ToString(*return_statement.return_expression_);
+            }
+            block_string += ";\n";
+          },
           [&block_string, depth](const pl_ast::BlockPointer& nested_block_pointer) {
             block_string += Indentation(depth) + "{\n";
             block_string += ToString(nested_block_pointer, depth + 1);

@@ -1,0 +1,27 @@
+fn return_integer() {
+    return 13;
+}
+
+fn return_true() {
+    return true;
+}
+
+fn return_false() {
+    return false;
+}
+
+fn return_nothing() {
+    return nothing;
+}
+
+fn return_expression() {
+    return 1 + 4 * 7;
+}
+
+fn main() {
+    print(return_integer());
+    print(return_true());
+    print(return_false());
+    print(return_nothing());
+    print(return_expression());
+}

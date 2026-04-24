@@ -4,6 +4,6 @@ fn main() {
             continue;
         }
 
-        debugPrint(i);
+        print(i);
     }
 }
