@@ -1,6 +1,7 @@
 #include <format>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <variant>
 
 #include "../common/overloaded.h"
@@ -36,7 +37,7 @@ namespace ast_walk {
     return joined_arguments;
   }
 
-  std::string ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
+  constexpr std::string_view ToString(const pl_ast::ArithmeticOperator arithmetic_operator) {
     switch (arithmetic_operator) {
       case pl_ast::ArithmeticOperator::kAdd: return "+";
       case pl_ast::ArithmeticOperator::kSubtract: return "-";
@@ -47,7 +48,7 @@ namespace ast_walk {
     throw std::runtime_error("ToString: unsupported arithmetic operator");
   }
 
-  std::string ToString(const pl_ast::RelationalOperator relational_operator) {
+  constexpr std::string_view ToString(const pl_ast::RelationalOperator relational_operator) {
     switch (relational_operator) {
       case pl_ast::RelationalOperator::kLessThan: return "<";
       case pl_ast::RelationalOperator::kLessThanOrEqual: return "<=";
@@ -58,7 +59,7 @@ namespace ast_walk {
     throw std::runtime_error("ToString: unsupported relational operator");
   }
 
-  std::string ToString(const pl_ast::EqualityOperator equality_operator) {
+  constexpr std::string_view ToString(const pl_ast::EqualityOperator equality_operator) {
     switch (equality_operator) {
       case pl_ast::EqualityOperator::kEqual: return "==";
       case pl_ast::EqualityOperator::kNotEqual: return "!=";
@@ -67,7 +68,7 @@ namespace ast_walk {
     throw std::runtime_error("ToString: unsupported equality operator");
   }
 
-  std::string ToString(const pl_ast::LogicalOperator logical_operator) {
+  constexpr std::string_view ToString(const pl_ast::LogicalOperator logical_operator) {
     switch (logical_operator) {
       case pl_ast::LogicalOperator::kAnd: return "&&";
       case pl_ast::LogicalOperator::kOr: return "||";
@@ -126,7 +127,7 @@ namespace ast_walk {
       std::visit(
         template_helpers::Overloaded{
           [&block_string, depth](const pl_ast::PrintStatement& print_statement) {
-            block_string += Indentation(depth) + "print(";
+            block_string += Indentation(depth) + (print_statement.new_line_ ? "println(" : "print(");
             if (print_statement.print_expression_) {
               block_string += ToString(*print_statement.print_expression_);
             }

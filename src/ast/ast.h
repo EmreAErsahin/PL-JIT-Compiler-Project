@@ -82,8 +82,10 @@ namespace pl_ast {
     std::vector<CopyableExpressionPointer> arguments_;
   };
 
+  // supports both print and println
   struct PrintStatement {
     std::optional<ExpressionVariant> print_expression_;
+    bool new_line_;
   };
 
   // Bare declarations are not supported

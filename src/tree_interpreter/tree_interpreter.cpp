@@ -156,6 +156,10 @@ namespace tree_interpreter {
         throw std::runtime_error("BuildFunctionTableAndRequireMain: no main function found");
       }
 
+      if (!available_functions_.at("main")->parameters_.empty()) {
+        throw std::runtime_error("BuildFunctionTableAndRequireMain: main function must not take parameters");
+      }
+
       return *available_functions_.at("main");
     }
 
@@ -292,6 +296,9 @@ namespace tree_interpreter {
             if (print_statement.print_expression_) {
               PrintValue(EvaluateExpression(*print_statement.print_expression_));
             }
+            if (print_statement.new_line_) {
+              std::cout << "\n";
+            }
             return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const pl_ast::LetStatement& let_statement) {
@@ -416,7 +423,7 @@ namespace tree_interpreter {
             }
 
             return ExecuteFunction(
-              runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_), std::move(evaluated_arguments)
+              runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_), evaluated_arguments
             );
           },
         },
