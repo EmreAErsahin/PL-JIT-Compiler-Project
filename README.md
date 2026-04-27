@@ -1,182 +1,168 @@
-# PL-JIT-Compiler-Project
+# PL JIT Compiler
 
-Small C++23 interpreter project built around a handwritten AST, a `cpp-peglib` parser, and a direct tree-walk runtime.
+Small programming language project in C++23. It runs source files in the custom language by parsing them into an AST,
+optionally printing the parsed form with `--debug`, and then executing them.
 
-## Current Language
+Current implementation:
 
-- Multiple top-level functions
-- Required zero-argument `fn main()` CLI entry point
-- Function parameters and arguments
-- Function calls in expression and statement position
-- `return;` and `return expr;`
-- Implicit `nothing` return at function end
-- `print(...)` with optional expression and no automatic newline
-- `println(...)` with optional expression and a trailing newline
-- `let` declarations and assignment to existing variables
-- Integer, boolean, and `nothing` values
-- Arithmetic `+ - * /` on integers
-- Relational `< <= > >=` on integers
-- Equality `== !=`
-- Logical `&& ||` with short-circuit behavior
-- Parenthesized expressions
-- Nested blocks and lexical block scoping with shadowing
-- `if / else if / else`
-- `while`
-- `for let i = init; condition; i = update { ... }`
-- `break` and `continue`
-- `//` line comments
+- a parser for a custom language
+- a handwritten AST
+- a tree-walk runtime
+- a golden-test-based language implementation project
 
-Not implemented:
+It is not a VM or JIT yet (this is the future plan)
 
-- Strings, floats, arrays, tables, closures
-- Unary operators or modulo
-- General expression statements beyond function-call statements
-- Imports/modules or type annotations
+## ReadMe Contents
 
-## Semantics
+- [Build And Run](#build-and-run)
+- [Scripts And Tests](#scripts-and-tests)
+- [Project Layout](#project-layout)
+- [Language](#language)
+- [Semantics](#semantics)
 
-- Runtime values are `int64_t`, `bool`, and `nothing`
-- `false`, `nothing`, and integer `0` are falsy
-- Nonzero integers and `true` are truthy
-- `main` must not take parameters
-- `return;` returns `nothing`
-- Falling off the end of a function returns `nothing`
-- Function arguments are evaluated left-to-right in the caller
-- Each function call creates a fresh call frame and one top-level function scope
-- Parameters and top-level function locals live in that same function scope
-- Equality on mismatched runtime types is `false`
-- Logical operators return booleans, not original operands
-- `break` and `continue` outside loops are runtime errors
-- `print` renders integers as decimal, booleans as `true` / `false`, and `nothing` as `nothing`
-- `println` behaves like `print` and then writes a newline
-- `print()` writes nothing; `println()` writes just a newline
+## Build And Run
 
-## Grammar
+Requirements:
 
-```peg
-Program                    <- Function+
-Function                   <- ~KeywordFn Identifier '(' Parameters ')' Block
-Parameters                 <- ParameterList / EmptyParameters
-ParameterList              <- Identifier (',' Identifier)*
-EmptyParameters            <- ''
-Block                      <- '{' Statement* '}'
-Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
-PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
-PrintlnStatement           <- ~KeywordPrintln '(' Expression? ')' ';'
-LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
-AssignmentStatement        <- Identifier '=' Expression ';'
-IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
-WhileStatement             <- ~KeywordWhile Expression Block
-ForStatement               <- ~KeywordFor LetStatement Expression ';' ForUpdate Block
-ForUpdate                  <- Identifier '=' Expression
-ContinueStatement          <- ~KeywordContinue ';'
-BreakStatement             <- ~KeywordBreak ';'
-ReturnStatement            <- ~KeywordReturn Expression? ';'
-FunctionCallStatement      <- FunctionCallExpression ';'
-Expression                 <- InfixExpression(Atom, InfixOperator)
-Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
-FunctionCallExpression     <- Identifier '(' Arguments ')'
-Arguments                  <- ArgumentList / EmptyArguments
-ArgumentList               <- Expression (',' Expression)*
-EmptyArguments             <- ''
-IdentifierExpression       <- Identifier
-InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
-Bool                       <- ~KeywordTrue / ~KeywordFalse
-Nothing                    <- ~KeywordNothing
-Integer                    <- < '-'? [0-9]+ >
-Identifier                 <- !Keyword IdentifierToken
-IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
-Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
-```
+- CMake `3.20+`
+- C++23 compiler
 
-## Architecture
-
-Pipeline:
-
-1. `src/main.cpp` reads the source file
-2. `src/parser/parser.cpp` parses it using `src/parser/language_grammar.h`
-3. The parser builds the AST from `src/ast/ast.h`
-4. `src/ast/ast_printer.cpp` prints normalized source for `--debug`
-5. `src/tree_interpreter/tree_interpreter.cpp` executes the AST directly
-
-Key implementation notes:
-
-- The parser uses `cpp-peglib` semantic values stored as `std::any`
-- Recursive AST expression children use `std::shared_ptr` to stay copyable for parser actions
-- `PrintStatement` represents both `print` and `println` with a newline flag in the AST
-- Function calls evaluate arguments in the caller, then bind parameter values in the callee
-- The top-level function scope is created by function execution, not by ordinary block execution
-- Statement and block execution propagate `ExecutionResult` values carrying normal flow, return, break, or continue
-
-## Source Layout
-
-- `src/main.cpp`: CLI entry point
-- `src/parser/`: grammar and parser actions
-- `src/ast/`: AST definitions and debug printer
-- `src/tree_interpreter/`: runtime model and interpreter
-- `src/common/overloaded.h`: `std::visit` helper
-- `tests/pass`: passing golden tests
-- `tests/fail`: failing golden tests
-- `scripts/`: test and debug helpers
-
-## Build
+From the project root:
 
 ```sh
 make build
+make clean
 ```
 
-Toolchain:
-
-- CMake `3.20+`
-- C++23
-- Clang/GCC warnings: `-Wall -Wextra -Wpedantic`
-
-## Run
+Run a source file manually:
 
 ```sh
 ./build/interpreter SOURCE
+```
+
+Run and print the parsed AST first:
+
+```sh
 ./build/interpreter --debug SOURCE
 ```
 
-`--debug` prints the parsed AST before execution.
+## Scripts And Tests
 
-## Test
+Run one passing or failing fixture:
 
 ```sh
 ./scripts/run_single_test.sh tests/pass/<name>.ee
 ./scripts/run_single_test.sh tests/fail/<name>.ee
-./scripts/run_passing_tests.sh
-./scripts/run_failing_tests.sh
-./scripts/run_all_tests.sh
-./scripts/debug_test.sh tests/pass/<name>.ee
 ```
 
-The suite is golden-file based:
+Run all passing tests:
 
-- passing tests use `.ee` + `.out`
-- failing tests use `.ee` + `.err`
-- stdout/stderr text is exact-match checked
-- `./scripts/run_all_tests.sh` runs the full passing and failing fixture suite
+```sh
+./scripts/run_passing_tests.sh
+```
 
-## Current Limits
+Run all failing tests:
 
-- Parse and runtime failures are surfaced as `std::runtime_error` messages printed to `stderr`
-- `main` parameters are rejected at runtime rather than by a separate semantic-analysis pass
-- Duplicate parameter names are currently rejected at runtime when parameters are bound into scope
-- `break` / `continue` placement is validated at runtime, not in a separate semantic-analysis pass
-- Only top-level functions exist; there are no nested functions or closures
-- Only `int64_t`, `bool`, and `nothing` exist as runtime values
-- Arithmetic and relational operators currently require integer operands
-- There is no VM, GC, or JIT yet
-- Integer arithmetic does not currently check overflow, so signed overflow is undefined behavior instead of a reported runtime error
+```sh
+./scripts/run_failing_tests.sh
+```
 
-## Future Direction
+Run the full suite:
 
-- Add expression statements beyond function-call statements
-- Add more builtins beyond `print` / `println`
-- Add strings and floats
-- Add unary operators and modulo
-- Add arrays and tables
-- Add first-class functions and closures
-- Improve diagnostics and semantic validation
-- Move toward a VM / GC / JIT path after interpreter semantics stabilize
+```sh
+./scripts/run_all_tests.sh
+```
+
+The tests are golden-file based:
+
+- passing tests compare exact stdout against `.out`
+- failing tests compare exact stderr against `.err`
+- wording and punctuation of diagnostics matter
+
+Scripts:
+
+- `scripts/run_single_test.sh`: run one fixture and compare output
+- `scripts/run_passing_tests.sh`: run all passing fixtures
+- `scripts/run_failing_tests.sh`: run all failing fixtures
+- `scripts/run_all_tests.sh`: run the full suite
+- `scripts/debug_test.sh`: run one fixture with `--debug`
+
+## Project Layout
+
+### Top level
+
+- `CMakeLists.txt`: build definition
+- `Makefile`: small wrapper around common CMake commands
+- `README.md`: project overview and usage
+- `third_party/peglib.h`: vendored `cpp-peglib`
+
+### Source
+
+- `src/main.cpp`: CLI entry point, `--debug` handling, top-level error reporting
+- `src/parser/language_grammar.h`: PEG grammar string
+- `src/parser/parser.h`: parser interface
+- `src/parser/parser.cpp`: parser construction and semantic actions that build the AST
+- `src/ast/ast.h`: AST node definitions
+- `src/ast/ast_printer.h`: AST printer interface
+- `src/ast/ast_printer.cpp`: source-like AST pretty printer used by `--debug`
+- `src/tree_interpreter/tree_interpreter.h`: interpreter entry point
+- `src/tree_interpreter/tree_interpreter.cpp`: runtime state, scope handling, expression evaluation, and statement
+  execution
+- `src/common/overloaded.h`: helper for `std::visit`
+
+### Tests
+
+- `tests/pass`: programs expected to succeed
+- `tests/fail`: programs expected to fail
+
+For fixtures:
+
+- `.ee`: source file
+- `.out`: expected stdout for passing tests
+- `.err`: expected stderr for failing tests
+
+## Language
+
+Current language support:
+
+- multiple top-level functions
+- required zero-argument `fn main()` entry point
+- function parameters and function calls
+- `print(...)` and `println(...)`
+- `let` declarations with required initializers
+- assignment to existing variables
+- `return;` and `return expr;`
+- integer, boolean, and `nothing` literals
+- identifier expressions
+- arithmetic `+`, `-`, `*`, `/`
+- relational `<`, `<=`, `>`, `>=`
+- equality `==`, `!=`
+- logical `&&`, `||`
+- parenthesized expressions
+- nested blocks
+- `if / else if / else`
+- `while`
+- `for let i = init; condition; i = update { ... }`
+- `break`
+- `continue`
+- `//` line comments
+
+## Semantics
+
+- runtime values are `int64_t`, `bool`, and `nothing`
+- `false`, `nothing`, and integer `0` are falsy
+- nonzero integers and `true` are truthy
+- functions implicitly return `nothing` if no `return` executes
+- `main` must exist and must not take parameters
+- function arguments are evaluated left-to-right in the caller
+- each function call creates a fresh call frame
+- parameters and top-level function locals live in the same function scope
+- blocks use lexical scoping with shadowing
+- equality on mismatched runtime types is `false`
+- logical operators return booleans, not original operands
+- `print` does not add a newline
+- `println` prints a trailing newline
+- `print()` writes nothing
+- `println()` writes only a newline
+- `break` and `continue` outside loops are runtime errors
+- parse and runtime failures are reported as `std::runtime_error` messages on stderr

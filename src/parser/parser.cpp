@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -18,8 +19,13 @@ namespace parser {
 
   // Parsing library requires copyable types
   template <std::copy_constructible T>
-  T CastSemanticValueTo(const peg::SemanticValues& semantic_values, const size_t index) {
-    return std::any_cast<T>(semantic_values[index]);
+  T CastSemanticValueTo(const std::any& value) {
+    return std::any_cast<T>(value);
+  }
+
+  template <typename T>
+  T ExtractStatementNode(const std::any& value) {
+    return std::get<T>(CastSemanticValueTo<pl_ast::StatementVariant>(value));
   }
 
   template <typename ExpressionNode, typename Operator>
@@ -30,7 +36,7 @@ namespace parser {
                      .left_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(left_operand)),
                      .operator_ = operator_value,
                      .right_operand_ = std::make_shared<pl_ast::ExpressionVariant>(std::move(right_operand)),
-      }
+                     }
     };
   }
 
@@ -38,7 +44,7 @@ namespace parser {
     pl_ast::PrintStatement print_statement;
     print_statement.new_line_ = new_line;
     if (!semantic_values.empty()) {
-      print_statement.print_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      print_statement.print_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
     }
     return print_statement;
   }
@@ -57,10 +63,10 @@ namespace parser {
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::Function function;
 
-      function.identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
-      function.parameters_ = CastSemanticValueTo<std::vector<pl_ast::Identifier>>(semantic_values, 1);
+      function.identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0]);
+      function.parameters_ = CastSemanticValueTo<std::vector<pl_ast::Identifier>>(semantic_values[1]);
 
-      function.function_block_ = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 2));
+      function.function_block_ = ExtractStatementNode<pl_ast::BlockPointer>(semantic_values[2]);
 
       return function;
     };
@@ -69,8 +75,8 @@ namespace parser {
       std::vector<pl_ast::Identifier> parameters;
       parameters.reserve(semantic_values.size());
 
-      for (size_t parameter_index = 0; parameter_index < semantic_values.size(); ++parameter_index) {
-        parameters.push_back(CastSemanticValueTo<pl_ast::Identifier>(semantic_values, parameter_index));
+      for (const auto& semantic_value : semantic_values) {
+        parameters.push_back(CastSemanticValueTo<pl_ast::Identifier>(semantic_value));
       }
 
       return parameters;
@@ -89,8 +95,8 @@ namespace parser {
     parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{
         pl_ast::LetStatement{
-                             .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
-                             .initializer_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
+                             .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0]),
+                             .initializer_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[1]),
                              }
       };
     };
@@ -98,34 +104,33 @@ namespace parser {
     parser["AssignmentStatement"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{
         pl_ast::AssignmentStatement{
-                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
-                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
+                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0]),
+                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[1]),
                                     }
       };
     };
 
     parser["IfStatement"] = [](const peg::SemanticValues& semantic_values) {
       // First two semantic values are if, last one is else if it's present, everything in the middle is else ifs
-      auto if_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-      auto if_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1));
+      auto if_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
+      auto if_block = ExtractStatementNode<pl_ast::BlockPointer>(semantic_values[1]);
 
       pl_ast::ElseIfConditionBlockPairs else_if_branches;
       // Semantic values are: if condition, if block, zero or more else-if condition/block pairs,
       // and an optional trailing else block.
-      const size_t number_of_else_if_branches = (semantic_values.size() - 2) / 2;
-      for (size_t current_branch = 1; current_branch <= number_of_else_if_branches; ++current_branch) {
+      const bool has_else_block = semantic_values.size() % 2 == 1;
+      const size_t else_if_end = has_else_block ? semantic_values.size() - 1 : semantic_values.size();
+      for (size_t branch_index = 2; branch_index < else_if_end; branch_index += 2) {
         else_if_branches.emplace_back(
-          CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, current_branch * 2),
-          std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, current_branch * 2 + 1))
+          CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[branch_index]),
+          ExtractStatementNode<pl_ast::BlockPointer>(semantic_values[branch_index + 1])
         );
       }
 
       std::optional<pl_ast::BlockPointer> else_block;
-      if (semantic_values.size() % 2) {
-        else_block =
-          std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_values.size() - 1));
+      if (has_else_block) {
+        else_block = ExtractStatementNode<pl_ast::BlockPointer>(semantic_values.back());
       }
-
       return pl_ast::StatementVariant{
         pl_ast::IfStatement{
                             .if_condition_ = std::move(if_condition),
@@ -137,8 +142,8 @@ namespace parser {
     };
 
     parser["WhileStatement"] = [](const peg::SemanticValues& semantic_values) {
-      auto while_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
-      auto while_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 1));
+      auto while_condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
+      auto while_block = ExtractStatementNode<pl_ast::BlockPointer>(semantic_values[1]);
 
       return pl_ast::StatementVariant{
         pl_ast::WhileStatement{.while_condition_ = std::move(while_condition), .while_block_ = std::move(while_block)}
@@ -147,10 +152,10 @@ namespace parser {
 
     parser["ForStatement"] = [](const peg::SemanticValues& semantic_values) {
       // Statements are all held as statement variant, so we cant any cast straight to let statement / assignment statement
-      auto initializer = std::get<pl_ast::LetStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0));
-      auto condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1);
-      auto update = std::get<pl_ast::AssignmentStatement>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 2));
-      auto for_block = std::get<pl_ast::BlockPointer>(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 3));
+      auto initializer = ExtractStatementNode<pl_ast::LetStatement>(semantic_values[0]);
+      auto condition = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[1]);
+      auto update = ExtractStatementNode<pl_ast::AssignmentStatement>(semantic_values[2]);
+      auto for_block = ExtractStatementNode<pl_ast::BlockPointer>(semantic_values[3]);
 
       return pl_ast::StatementVariant{
         pl_ast::ForStatement{
@@ -165,8 +170,8 @@ namespace parser {
     parser["ForUpdate"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{
         pl_ast::AssignmentStatement{
-                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0),
-                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 1),
+                                    .identifier_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0]),
+                                    .assigned_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[1]),
                                     }
       };
     };
@@ -178,14 +183,14 @@ namespace parser {
     parser["ReturnStatement"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::ReturnStatement return_statement;
       if (!semantic_values.empty()) {
-        return_statement.return_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+        return_statement.return_expression_ = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
       }
       return pl_ast::StatementVariant{return_statement};
     };
 
     parser["FunctionCallStatement"] = [](const peg::SemanticValues& semantic_values) {
       return pl_ast::StatementVariant{pl_ast::FunctionCallStatement{
-        .function_call_ = std::get<pl_ast::FunctionCallExpression>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0))
+        .function_call_ = std::get<pl_ast::FunctionCallExpression>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]))
       }};
     };
 
@@ -201,8 +206,8 @@ namespace parser {
 
     parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::FunctionCallExpression function_call_expression;
-      function_call_expression.function_name_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0);
-      function_call_expression.arguments_ = CastSemanticValueTo<std::vector<pl_ast::CopyableExpressionPointer>>(semantic_values, 1);
+      function_call_expression.function_name_ = CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0]);
+      function_call_expression.arguments_ = CastSemanticValueTo<std::vector<pl_ast::CopyableExpressionPointer>>(semantic_values[1]);
 
       return pl_ast::ExpressionVariant{std::move(function_call_expression)};
     };
@@ -211,10 +216,8 @@ namespace parser {
       std::vector<pl_ast::CopyableExpressionPointer> arguments;
       arguments.reserve(semantic_values.size());
 
-      for (size_t argument_index = 0; argument_index < semantic_values.size(); ++argument_index) {
-        arguments.push_back(
-          std::make_shared<pl_ast::ExpressionVariant>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, argument_index))
-        );
+      for (const auto& semantic_value : semantic_values) {
+        arguments.push_back(std::make_shared<pl_ast::ExpressionVariant>(CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_value)));
       }
 
       return arguments;
@@ -223,7 +226,7 @@ namespace parser {
     parser["EmptyArguments"] = [](const peg::SemanticValues&) { return std::vector<pl_ast::CopyableExpressionPointer>{}; };
 
     parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
-      return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values, 0)}};
+      return pl_ast::ExpressionVariant{pl_ast::IdentifierExpression{CastSemanticValueTo<pl_ast::Identifier>(semantic_values[0])}};
     };
 
     parser["InfixOperator"] = [](const peg::SemanticValues& semantic_values) {
@@ -257,22 +260,22 @@ namespace parser {
     };
 
     parser["Atom"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
     };
 
     parser["Expression"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      return CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
     };
 
     parser["InfixExpression"] = [](const peg::SemanticValues& semantic_values) {
-      auto left_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 0);
+      auto left_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[0]);
 
       if (semantic_values.size() == 1) {
         return left_operand;
       }
 
-      const auto infix_operator = CastSemanticValueTo<InfixOperator>(semantic_values, 1);
-      auto right_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values, 2);
+      const auto infix_operator = CastSemanticValueTo<InfixOperator>(semantic_values[1]);
+      auto right_operand = CastSemanticValueTo<pl_ast::ExpressionVariant>(semantic_values[2]);
 
       return std::visit(
         template_helpers::Overloaded{
@@ -294,15 +297,15 @@ namespace parser {
     };
 
     parser["Statement"] = [](const peg::SemanticValues& semantic_values) {
-      return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, 0);
+      return CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values[0]);
     };
 
     parser["Block"] = [](const peg::SemanticValues& semantic_values) {
       std::vector<pl_ast::StatementVariant> statement_variants;
       statement_variants.reserve(semantic_values.size());
 
-      for (size_t semantic_value_index = 0; semantic_value_index < semantic_values.size(); ++semantic_value_index) {
-        statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_values, semantic_value_index));
+      for (const auto& semantic_value : semantic_values) {
+        statement_variants.push_back(CastSemanticValueTo<pl_ast::StatementVariant>(semantic_value));
       }
 
       return pl_ast::StatementVariant{std::make_shared<pl_ast::Block>(pl_ast::Block{.statements_ = std::move(statement_variants)})};
@@ -310,10 +313,9 @@ namespace parser {
 
     parser["Program"] = [](const peg::SemanticValues& semantic_values) {
       pl_ast::Program program;
-      const size_t number_of_functions = semantic_values.size();
-      program.functions_.reserve(number_of_functions);
-      for (size_t current_function = 0; current_function < number_of_functions; ++current_function) {
-        program.functions_.push_back(CastSemanticValueTo<pl_ast::Function>(semantic_values, current_function));
+      program.functions_.reserve(semantic_values.size());
+      for (const auto& semantic_value : semantic_values) {
+        program.functions_.push_back(CastSemanticValueTo<pl_ast::Function>(semantic_value));
       }
       return program;
     };
@@ -324,7 +326,7 @@ namespace parser {
     return parser;
   }
 
-  pl_ast::Program ParseFileContentsIntoAST(const std::string& file_contents) {
+  pl_ast::Program ParseFileContentsIntoAST(std::string_view file_contents) {
     auto parser = MakeParser();
 
     size_t error_line = 0;

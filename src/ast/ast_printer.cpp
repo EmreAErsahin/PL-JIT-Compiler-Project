@@ -1,4 +1,5 @@
 #include <format>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -15,24 +16,28 @@ namespace ast_walk {
 
   std::string ToString(const pl_ast::ExpressionVariant& expression_variant);
 
-  std::string ToString(const std::vector<pl_ast::Identifier>& identifiers) {
+  std::string ToString(std::span<const pl_ast::Identifier> identifiers) {
     std::string joined_identifiers;
-    for (size_t current_identifier = 0; current_identifier < identifiers.size(); ++current_identifier) {
-      if (current_identifier != 0) {
+    bool first_identifier = true;
+    for (const auto& identifier : identifiers) {
+      if (!first_identifier) {
         joined_identifiers += ", ";
       }
-      joined_identifiers += identifiers[current_identifier].name_;
+      joined_identifiers += identifier.name_;
+      first_identifier = false;
     }
     return joined_identifiers;
   }
 
-  std::string ToString(const std::vector<pl_ast::CopyableExpressionPointer>& arguments) {
+  std::string ToString(std::span<const pl_ast::CopyableExpressionPointer> arguments) {
     std::string joined_arguments;
-    for (size_t current_argument = 0; current_argument < arguments.size(); ++current_argument) {
-      if (current_argument != 0) {
+    bool first_argument = true;
+    for (const auto& argument : arguments) {
+      if (!first_argument) {
         joined_arguments += ", ";
       }
-      joined_arguments += ToString(*arguments[current_argument]);
+      joined_arguments += ToString(*argument);
+      first_argument = false;
     }
     return joined_arguments;
   }

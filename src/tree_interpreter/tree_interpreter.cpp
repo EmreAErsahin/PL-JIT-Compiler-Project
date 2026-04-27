@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <ranges>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -240,15 +243,15 @@ namespace tree_interpreter {
       return {*left_integer, *right_integer};
     }
 
-    Value ExecuteFunction(const pl_ast::Function& function, const std::vector<Value>& arguments) {
+    Value ExecuteFunction(const pl_ast::Function& function, std::span<const Value> arguments) {
       if (arguments.size() != function.parameters_.size()) {
         throw std::runtime_error("ExecuteFunction: argument count doesn't match parameter count");
       }
 
       RuntimeState::CallFrameGuard call_frame_guard(runtime_state_);
       RuntimeState::ScopeGuard function_level_scope(runtime_state_);
-      for (size_t argument_index = 0; argument_index < arguments.size(); ++argument_index) {
-        runtime_state_.DeclareVariable(function.parameters_[argument_index].name_, arguments[argument_index]);
+      for (auto&& [parameter, argument] : std::views::zip(function.parameters_, arguments)) {
+        runtime_state_.DeclareVariable(parameter.name_, argument);
       }
 
       const auto [control_flow, return_value] = ExecuteBlock(function.function_block_, false);
@@ -418,9 +421,11 @@ namespace tree_interpreter {
             // Need to evaluate all the arguments to pass to execute function
             std::vector<Value> evaluated_arguments;
             evaluated_arguments.reserve(function_call_expression.arguments_.size());
-            for (const auto& argument : function_call_expression.arguments_) {
-              evaluated_arguments.push_back(EvaluateExpression(*argument));
-            }
+
+            std::ranges::transform(
+              function_call_expression.arguments_, std::back_inserter(evaluated_arguments),
+              [this](const auto& argument) { return EvaluateExpression(*argument); }
+            );
 
             return ExecuteFunction(
               runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_), evaluated_arguments
