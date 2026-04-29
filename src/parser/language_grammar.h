@@ -30,7 +30,9 @@ namespace parser_grammar {
       BreakStatement             <- ~KeywordBreak ';'
       ReturnStatement            <- ~KeywordReturn Expression? ';'
       FunctionCallStatement      <- FunctionCallExpression ';'
-      Expression                 <- InfixExpression(Atom, InfixOperator)
+      Expression                 <- InfixExpression(UnaryExpression, InfixOperator)
+      UnaryExpression            <- UnaryOperator UnaryExpression / Atom
+      UnaryOperator              <- < '-' / '!' >
       Atom                       <- Integer / Bool / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
       FunctionCallExpression     <- Identifier '(' Arguments ')'
       Arguments                  <- ArgumentList / EmptyArguments
@@ -40,7 +42,7 @@ namespace parser_grammar {
       InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
-      Integer                    <- < '-'? [0-9]+ >
+      Integer                    <- < [0-9]+ >
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
       Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn

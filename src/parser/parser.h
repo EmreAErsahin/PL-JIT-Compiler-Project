@@ -6,7 +6,7 @@
 #include "../ast/ast.h"
 
 namespace parser {
-  pl_ast::Program ParseFileContentsIntoAST(std::string_view file_contents);
+  ast::Program ParseFileContentsIntoAST(std::string_view file_contents);
 }
 
 #endif // parser_H

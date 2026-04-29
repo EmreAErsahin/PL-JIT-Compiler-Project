@@ -1,0 +1,9 @@
+fn negative_five() {
+    return -5;
+}
+
+fn main() {
+    let x = negative_five();
+    println(-x);
+    println(!x);
+}

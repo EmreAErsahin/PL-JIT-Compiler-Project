@@ -6,7 +6,7 @@
 #include "ast.h"
 
 namespace ast_walk {
-  std::string ToString(const pl_ast::Program& program);
+  std::string ToString(const ast::Program& program);
 }
 
 #endif // ast_printer_H

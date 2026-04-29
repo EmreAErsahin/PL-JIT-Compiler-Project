@@ -46,13 +46,21 @@ namespace tree_interpreter {
     );
   }
 
-  Value
-  ExecuteArithmeticOperation(const int64_t left_value, const pl_ast::ArithmeticOperator arithmetic_operator, const int64_t right_value) {
+  int64_t RequireIntegerValue(const Value& value) {
+    const auto integer_value = std::get_if<int64_t>(&value);
+    if (!integer_value) {
+      throw std::runtime_error("RequireIntegerValue: value must be an integer");
+    }
+
+    return *integer_value;
+  }
+
+  Value ExecuteArithmeticOperation(const int64_t left_value, const ast::ArithmeticOperator arithmetic_operator, const int64_t right_value) {
     switch (arithmetic_operator) {
-      case pl_ast::ArithmeticOperator::kAdd: return left_value + right_value;
-      case pl_ast::ArithmeticOperator::kSubtract: return left_value - right_value;
-      case pl_ast::ArithmeticOperator::kMultiply: return left_value * right_value;
-      case pl_ast::ArithmeticOperator::kDivide:
+      case ast::ArithmeticOperator::kAdd: return left_value + right_value;
+      case ast::ArithmeticOperator::kSubtract: return left_value - right_value;
+      case ast::ArithmeticOperator::kMultiply: return left_value * right_value;
+      case ast::ArithmeticOperator::kDivide:
         if (right_value == 0) {
           throw std::runtime_error("ExecuteArithmeticOperation: division by zero");
         }
@@ -62,19 +70,18 @@ namespace tree_interpreter {
     throw std::runtime_error("ExecuteArithmeticOperation: unsupported arithmetic operator");
   }
 
-  Value
-  ExecuteRelationalOperation(const int64_t left_value, const pl_ast::RelationalOperator relational_operator, const int64_t right_value) {
+  Value ExecuteRelationalOperation(const int64_t left_value, const ast::RelationalOperator relational_operator, const int64_t right_value) {
     switch (relational_operator) {
-      case pl_ast::RelationalOperator::kLessThan: return left_value < right_value;
-      case pl_ast::RelationalOperator::kLessThanOrEqual: return left_value <= right_value;
-      case pl_ast::RelationalOperator::kGreaterThan: return left_value > right_value;
-      case pl_ast::RelationalOperator::kGreaterThanOrEqual: return left_value >= right_value;
+      case ast::RelationalOperator::kLessThan: return left_value < right_value;
+      case ast::RelationalOperator::kLessThanOrEqual: return left_value <= right_value;
+      case ast::RelationalOperator::kGreaterThan: return left_value > right_value;
+      case ast::RelationalOperator::kGreaterThanOrEqual: return left_value >= right_value;
     }
 
     throw std::runtime_error("ExecuteRelationalOperation: unsupported relational operator");
   }
 
-  Value ExecuteEqualityOperation(const Value& left_value, const pl_ast::EqualityOperator equality_operator, const Value& right_value) {
+  Value ExecuteEqualityOperation(const Value& left_value, const ast::EqualityOperator equality_operator, const Value& right_value) {
     const bool are_equal = std::visit(
       template_helpers::Overloaded{
         [](const int64_t left_integer, const int64_t right_integer) { return left_integer == right_integer; },
@@ -86,20 +93,29 @@ namespace tree_interpreter {
     );
 
     switch (equality_operator) {
-      case pl_ast::EqualityOperator::kEqual: return are_equal;
-      case pl_ast::EqualityOperator::kNotEqual: return !are_equal;
+      case ast::EqualityOperator::kEqual: return are_equal;
+      case ast::EqualityOperator::kNotEqual: return !are_equal;
     }
 
     throw std::runtime_error("ExecuteEqualityOperation: unsupported equality operator");
   }
 
-  Value ExecuteLogicalOperation(const bool left_value, const pl_ast::LogicalOperator logical_operator, const bool right_value) {
+  Value ExecuteLogicalOperation(const bool left_value, const ast::LogicalOperator logical_operator, const bool right_value) {
     switch (logical_operator) {
-      case pl_ast::LogicalOperator::kAnd: return left_value && right_value;
-      case pl_ast::LogicalOperator::kOr: return left_value || right_value;
+      case ast::LogicalOperator::kAnd: return left_value && right_value;
+      case ast::LogicalOperator::kOr: return left_value || right_value;
     }
 
     throw std::runtime_error("ExecuteLogicalOperation: unsupported logical operator");
+  }
+
+  Value ExecuteUnaryOperation(const ast::UnaryOperator unary_operator, const Value& operand_value) {
+    switch (unary_operator) {
+      case ast::UnaryOperator::kNegate: return -RequireIntegerValue(operand_value);
+      case ast::UnaryOperator::kNot: return !IsTruthy(operand_value);
+    }
+
+    throw std::runtime_error("ExecuteUnaryOperation: unsupported unary operator");
   }
 
   void PrintValue(const Value& value) {
@@ -147,7 +163,7 @@ namespace tree_interpreter {
       RuntimeState& runtime_state_;
     };
 
-    const pl_ast::Function& BuildFunctionTableAndRequireMain(const pl_ast::Program& program) {
+    const ast::Function& BuildFunctionTableAndRequireMain(const ast::Program& program) {
       for (const auto& current_function : program.functions_) {
         if (available_functions_.contains(current_function.identifier_.name_)) {
           throw std::runtime_error("BuildFunctionTableAndRequireMain: duplicate function '" + current_function.identifier_.name_ + "'");
@@ -166,7 +182,7 @@ namespace tree_interpreter {
       return *available_functions_.at("main");
     }
 
-    const pl_ast::Function& LookupFunctionOrThrow(const std::string& function_name) const {
+    const ast::Function& LookupFunctionOrThrow(const std::string& function_name) const {
       if (const auto function_iterator = available_functions_.find(function_name); function_iterator != available_functions_.end()) {
         return *function_iterator->second;
       }
@@ -207,7 +223,7 @@ namespace tree_interpreter {
    private:
     // State needed for runtime execution: our function scopes + what functions are callable
     std::vector<CallFrame> call_stack_;
-    std::unordered_map<std::string, const pl_ast::Function*> available_functions_;
+    std::unordered_map<std::string, const ast::Function*> available_functions_;
 
     CallFrame& CurrentFrame() { return call_stack_.back(); }
 
@@ -216,8 +232,8 @@ namespace tree_interpreter {
 
   class Interpreter {
    public:
-    void Run(const pl_ast::Program& program) {
-      const pl_ast::Function& main_function = runtime_state_.BuildFunctionTableAndRequireMain(program);
+    void Run(const ast::Program& program) {
+      const ast::Function& main_function = runtime_state_.BuildFunctionTableAndRequireMain(program);
       ExecuteFunction(main_function, {});
     }
 
@@ -225,25 +241,19 @@ namespace tree_interpreter {
     RuntimeState runtime_state_;
 
     std::pair<Value, Value>
-    EvaluateBothOperands(const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand) {
+    EvaluateBothOperands(const ast::CopyableExpressionPointer& left_operand, const ast::CopyableExpressionPointer& right_operand) {
       return {EvaluateExpression(*left_operand), EvaluateExpression(*right_operand)};
     }
 
     std::pair<int64_t, int64_t> EvaluateBothOperandsAsIntegers(
-      const pl_ast::CopyableExpressionPointer& left_operand, const pl_ast::CopyableExpressionPointer& right_operand
+      const ast::CopyableExpressionPointer& left_operand, const ast::CopyableExpressionPointer& right_operand
     ) {
       const auto [left_value, right_value] = EvaluateBothOperands(left_operand, right_operand);
 
-      const auto left_integer = std::get_if<int64_t>(&left_value);
-      const auto right_integer = std::get_if<int64_t>(&right_value);
-      if (!left_integer || !right_integer) {
-        throw std::runtime_error("EvaluateBothOperandsAsIntegers: operation requires integer operands");
-      }
-
-      return {*left_integer, *right_integer};
+      return {RequireIntegerValue(left_value), RequireIntegerValue(right_value)};
     }
 
-    Value ExecuteFunction(const pl_ast::Function& function, std::span<const Value> arguments) {
+    Value ExecuteFunction(const ast::Function& function, std::span<const Value> arguments) {
       if (arguments.size() != function.parameters_.size()) {
         throw std::runtime_error("ExecuteFunction: argument count doesn't match parameter count");
       }
@@ -254,7 +264,7 @@ namespace tree_interpreter {
         runtime_state_.DeclareVariable(parameter.name_, argument);
       }
 
-      const auto [control_flow, return_value] = ExecuteBlock(function.function_block_, false);
+      const auto [control_flow, return_value] = ExecuteBlock(function.function_block_, BlockScope::kReuseScope);
 
       switch (control_flow) {
         case ControlFlow::kNormal: return NothingValue{};
@@ -266,7 +276,7 @@ namespace tree_interpreter {
       throw std::runtime_error("ExecuteFunction: unknown control flow");
     }
 
-    ExecutionResult ExecuteStatementsInBlock(const pl_ast::BlockPointer& block_pointer) {
+    ExecutionResult ExecuteStatementsInBlock(const ast::BlockPointer& block_pointer) {
       ExecutionResult execution_result;
       for (const auto& statement_variant : block_pointer->statements_) {
         execution_result = ExecuteStatement(statement_variant);
@@ -277,14 +287,16 @@ namespace tree_interpreter {
       return execution_result;
     }
 
-    ExecutionResult ExecuteBlock(const pl_ast::BlockPointer& block_pointer, const bool create_scope = true) {
+    enum class BlockScope { kCreateScope, kReuseScope };
+
+    ExecutionResult ExecuteBlock(const ast::BlockPointer& block_pointer, const BlockScope block_scope_behavior = BlockScope::kCreateScope) {
       if (!block_pointer) {
         throw std::runtime_error("ExecuteBlock: null block pointer");
       }
 
       // With normal blocks like a while block, we create a scope for the variables
       // If we are executing a function block, we don't need to create a top level bc ExecuteFunction already does for parameters/args
-      if (create_scope) {
+      if (block_scope_behavior == BlockScope::kCreateScope) {
         RuntimeState::ScopeGuard block_scope(runtime_state_);
 
         return ExecuteStatementsInBlock(block_pointer);
@@ -292,10 +304,10 @@ namespace tree_interpreter {
       return ExecuteStatementsInBlock(block_pointer);
     }
 
-    ExecutionResult ExecuteStatement(const pl_ast::StatementVariant& statement_variant) {
+    ExecutionResult ExecuteStatement(const ast::StatementVariant& statement_variant) {
       return std::visit(
         template_helpers::Overloaded{
-          [this](const pl_ast::PrintStatement& print_statement) {
+          [this](const ast::PrintStatement& print_statement) {
             if (print_statement.print_expression_) {
               PrintValue(EvaluateExpression(*print_statement.print_expression_));
             }
@@ -304,17 +316,17 @@ namespace tree_interpreter {
             }
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::LetStatement& let_statement) {
+          [this](const ast::LetStatement& let_statement) {
             runtime_state_.DeclareVariable(let_statement.identifier_.name_, EvaluateExpression(let_statement.initializer_expression_));
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::AssignmentStatement& assignment_statement) {
+          [this](const ast::AssignmentStatement& assignment_statement) {
             runtime_state_.AssignVariable(
               assignment_statement.identifier_.name_, EvaluateExpression(assignment_statement.assigned_expression_)
             );
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::IfStatement& if_statement) {
+          [this](const ast::IfStatement& if_statement) {
             if (IsTruthy(EvaluateExpression(if_statement.if_condition_))) {
               return ExecuteBlock(if_statement.if_block_);
             }
@@ -330,7 +342,7 @@ namespace tree_interpreter {
             }
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::WhileStatement& while_statement) {
+          [this](const ast::WhileStatement& while_statement) {
             while (IsTruthy(EvaluateExpression(while_statement.while_condition_))) {
               const ExecutionResult execution_result = ExecuteBlock(while_statement.while_block_);
 
@@ -343,7 +355,7 @@ namespace tree_interpreter {
             }
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::ForStatement& for_statement) {
+          [this](const ast::ForStatement& for_statement) {
             // Must add scope for initializer variable (needs to live past loop iterations).
             RuntimeState::ScopeGuard initializer_variable_scope(runtime_state_);
             ExecuteStatement(for_statement.initializer_);
@@ -360,56 +372,56 @@ namespace tree_interpreter {
             }
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [](const pl_ast::ContinueStatement&) { return ExecutionResult{ControlFlow::kContinue}; },
-          [](const pl_ast::BreakStatement&) { return ExecutionResult{ControlFlow::kBreak}; },
-          [this](const pl_ast::ReturnStatement& return_statement) {
+          [](const ast::ContinueStatement&) { return ExecutionResult{ControlFlow::kContinue}; },
+          [](const ast::BreakStatement&) { return ExecutionResult{ControlFlow::kBreak}; },
+          [this](const ast::ReturnStatement& return_statement) {
             return ExecutionResult{
               ControlFlow::kReturn,
               return_statement.return_expression_ ? EvaluateExpression(*return_statement.return_expression_) : NothingValue{}
             };
           },
-          [this](const pl_ast::FunctionCallStatement& function_call_statement) {
+          [this](const ast::FunctionCallStatement& function_call_statement) {
             EvaluateExpression(function_call_statement.function_call_);
             // Control flow is normal because function call statements are only ran for side effects
             return ExecutionResult{ControlFlow::kNormal};
           },
-          [this](const pl_ast::BlockPointer& block_pointer) { return ExecuteBlock(block_pointer); },
+          [this](const ast::BlockPointer& block_pointer) { return ExecuteBlock(block_pointer); },
         },
         statement_variant
       );
     }
 
-    Value EvaluateExpression(const pl_ast::ExpressionVariant& expression_variant) {
+    Value EvaluateExpression(const ast::ExpressionVariant& expression_variant) {
       return std::visit(
         template_helpers::Overloaded{
-          [](const pl_ast::IntegerLiteralExpression& integer_expression) -> Value { return integer_expression.value_; },
-          [](const pl_ast::BoolLiteralExpression& bool_expression) -> Value { return bool_expression.value_; },
-          [](const pl_ast::NothingLiteralExpression&) -> Value { return NothingValue{}; },
-          [this](const pl_ast::IdentifierExpression& identifier_expression) -> Value {
+          [](const ast::IntegerLiteralExpression& integer_expression) -> Value { return integer_expression.value_; },
+          [](const ast::BoolLiteralExpression& bool_expression) -> Value { return bool_expression.value_; },
+          [](const ast::NothingLiteralExpression&) -> Value { return NothingValue{}; },
+          [this](const ast::IdentifierExpression& identifier_expression) -> Value {
             return runtime_state_.LookupVariable(identifier_expression.identifier_.name_);
           },
-          [this](const pl_ast::ArithmeticExpression& arithmetic_expression) -> Value {
+          [this](const ast::ArithmeticExpression& arithmetic_expression) -> Value {
             const auto [left_value, right_value] =
               EvaluateBothOperandsAsIntegers(arithmetic_expression.left_operand_, arithmetic_expression.right_operand_);
             return ExecuteArithmeticOperation(left_value, arithmetic_expression.operator_, right_value);
           },
-          [this](const pl_ast::RelationalExpression& relational_expression) -> Value {
+          [this](const ast::RelationalExpression& relational_expression) -> Value {
             const auto [left_value, right_value] =
               EvaluateBothOperandsAsIntegers(relational_expression.left_operand_, relational_expression.right_operand_);
             return ExecuteRelationalOperation(left_value, relational_expression.operator_, right_value);
           },
-          [this](const pl_ast::EqualityExpression& equality_expression) -> Value {
+          [this](const ast::EqualityExpression& equality_expression) -> Value {
             const auto [left_value, right_value] =
               EvaluateBothOperands(equality_expression.left_operand_, equality_expression.right_operand_);
             return ExecuteEqualityOperation(left_value, equality_expression.operator_, right_value);
           },
-          [this](const pl_ast::LogicalExpression& logical_expression) -> Value {
+          [this](const ast::LogicalExpression& logical_expression) -> Value {
             const auto left_value = EvaluateExpression(*logical_expression.left_operand_);
 
-            if (logical_expression.operator_ == pl_ast::LogicalOperator::kAnd && !IsTruthy(left_value)) {
+            if (logical_expression.operator_ == ast::LogicalOperator::kAnd && !IsTruthy(left_value)) {
               return false;
             }
-            if (logical_expression.operator_ == pl_ast::LogicalOperator::kOr && IsTruthy(left_value)) {
+            if (logical_expression.operator_ == ast::LogicalOperator::kOr && IsTruthy(left_value)) {
               return true;
             }
 
@@ -417,7 +429,10 @@ namespace tree_interpreter {
               IsTruthy(left_value), logical_expression.operator_, IsTruthy(EvaluateExpression(*logical_expression.right_operand_))
             );
           },
-          [this](const pl_ast::FunctionCallExpression& function_call_expression) -> Value {
+          [this](const ast::UnaryExpression& unary_expression) -> Value {
+            return ExecuteUnaryOperation(unary_expression.operator_, EvaluateExpression(*unary_expression.operand_));
+          },
+          [this](const ast::FunctionCallExpression& function_call_expression) -> Value {
             // Need to evaluate all the arguments to pass to execute function
             std::vector<Value> evaluated_arguments;
             evaluated_arguments.reserve(function_call_expression.arguments_.size());
@@ -437,7 +452,7 @@ namespace tree_interpreter {
     }
   };
 
-  void ExecuteAstWithTreeInterpreter(const pl_ast::Program& program) {
+  void ExecuteAstWithTreeInterpreter(const ast::Program& program) {
     Interpreter interpreter;
     interpreter.Run(program);
   }

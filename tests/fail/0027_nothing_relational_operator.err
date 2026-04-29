@@ -1,1 +1,1 @@
-EvaluateBothOperandsAsIntegers: operation requires integer operands
+RequireIntegerValue: value must be an integer
