@@ -134,6 +134,7 @@ Current language support:
 - `return;` and `return expr;`
 - integer, boolean, and `nothing` literals
 - identifier expressions
+- unary `-`, `!`
 - arithmetic `+`, `-`, `*`, `/`
 - relational `<`, `<=`, `>`, `>=`
 - equality `==`, `!=`

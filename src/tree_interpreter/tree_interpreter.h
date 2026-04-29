@@ -4,7 +4,7 @@
 #include "../ast/ast.h"
 
 namespace tree_interpreter {
-  void ExecuteAstWithTreeInterpreter(const pl_ast::Program& program);
+  void ExecuteAstWithTreeInterpreter(const ast::Program& program);
 }
 
 #endif // tree_interpreter_H

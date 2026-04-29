@@ -1,5 +1,5 @@
-#ifndef pl_ast_H
-#define pl_ast_H
+#ifndef ast_H
+#define ast_H
 
 #include <cstdint>
 #include <memory>
@@ -9,7 +9,7 @@
 #include <variant>
 #include <vector>
 
-namespace pl_ast {
+namespace ast {
   struct IntegerLiteralExpression {
     int64_t value_;
   };
@@ -34,12 +34,13 @@ namespace pl_ast {
   struct RelationalExpression;
   struct EqualityExpression;
   struct LogicalExpression;
+  struct UnaryExpression;
   struct FunctionCallExpression;
   // clang-format on
 
   using ExpressionVariant = std::variant<
     IntegerLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, IdentifierExpression, ArithmeticExpression,
-    RelationalExpression, EqualityExpression, LogicalExpression, FunctionCallExpression>;
+    RelationalExpression, EqualityExpression, LogicalExpression, UnaryExpression, FunctionCallExpression>;
 
   // TODO: Try to find a better alternative for shared ptr. Shared ownership is awkward bc only the AST needs
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
@@ -75,6 +76,13 @@ namespace pl_ast {
     CopyableExpressionPointer left_operand_;
     LogicalOperator operator_;
     CopyableExpressionPointer right_operand_;
+  };
+
+  enum class UnaryOperator { kNegate, kNot };
+
+  struct UnaryExpression {
+    UnaryOperator operator_;
+    CopyableExpressionPointer operand_;
   };
 
   struct FunctionCallExpression {
@@ -155,6 +163,6 @@ namespace pl_ast {
   struct Program {
     std::vector<Function> functions_;
   };
-} // namespace pl_ast
+} // namespace ast
 
-#endif // pl_ast_H
+#endif // ast_H
