@@ -135,7 +135,7 @@ Current language support:
 - integer, boolean, and `nothing` literals
 - identifier expressions
 - unary `-`, `!`
-- arithmetic `+`, `-`, `*`, `/`
+- arithmetic `+`, `-`, `*`, `/`, `%`
 - relational `<`, `<=`, `>`, `>=`
 - equality `==`, `!=`
 - logical `&&`, `||`

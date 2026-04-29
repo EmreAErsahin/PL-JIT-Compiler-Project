@@ -65,6 +65,11 @@ namespace tree_interpreter {
           throw std::runtime_error("ExecuteArithmeticOperation: division by zero");
         }
         return left_value / right_value;
+      case ast::ArithmeticOperator::kModulo:
+        if (right_value == 0) {
+          throw std::runtime_error("ExecuteArithmeticOperation: modulo by zero");
+        }
+        return left_value % right_value;
     }
 
     throw std::runtime_error("ExecuteArithmeticOperation: unsupported arithmetic operator");
