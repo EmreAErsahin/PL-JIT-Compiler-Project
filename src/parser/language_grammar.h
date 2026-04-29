@@ -39,7 +39,7 @@ namespace parser_grammar {
       ArgumentList               <- Expression (',' Expression)*
       EmptyArguments             <- ''
       IdentifierExpression       <- Identifier
-      InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*] >
+      InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*%] >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       Nothing                    <- ~KeywordNothing
       Integer                    <- < [0-9]+ >
@@ -67,7 +67,7 @@ namespace parser_grammar {
           L == !=
           L < <= > >=
           L + -
-          L * /
+          L * / %
       }
       End                        <- EndOfLine / EndOfFile
       EndOfLine                  <- '\r\n' / '\n' / '\r'

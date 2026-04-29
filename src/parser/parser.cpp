@@ -262,6 +262,8 @@ namespace parser {
         return InfixOperator{ast::ArithmeticOperator::kMultiply};
       } else if (operator_token == "/") {
         return InfixOperator{ast::ArithmeticOperator::kDivide};
+      } else if (operator_token == "%") {
+        return InfixOperator{ast::ArithmeticOperator::kModulo};
       } else if (operator_token == "<") {
         return InfixOperator{ast::RelationalOperator::kLessThan};
       } else if (operator_token == "<=") {

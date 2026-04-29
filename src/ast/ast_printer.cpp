@@ -48,6 +48,7 @@ namespace ast_walk {
       case ast::ArithmeticOperator::kSubtract: return "-";
       case ast::ArithmeticOperator::kMultiply: return "*";
       case ast::ArithmeticOperator::kDivide: return "/";
+      case ast::ArithmeticOperator::kModulo: return "%";
     }
 
     throw std::runtime_error("ToString: unsupported arithmetic operator");

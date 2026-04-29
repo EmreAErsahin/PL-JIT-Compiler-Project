@@ -46,7 +46,7 @@ namespace ast {
   // to own this, but cpp-peglib stores semantic values as std::any which requires copyable objects
   using CopyableExpressionPointer = std::shared_ptr<ExpressionVariant>;
 
-  enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide };
+  enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide, kModulo };
 
   struct ArithmeticExpression {
     CopyableExpressionPointer left_operand_;
