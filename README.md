@@ -106,8 +106,9 @@ Scripts:
 - `src/ast/ast_printer.h`: AST printer interface
 - `src/ast/ast_printer.cpp`: source-like AST pretty printer used by `--debug`
 - `src/tree_interpreter/tree_interpreter.h`: interpreter entry point
-- `src/tree_interpreter/tree_interpreter.cpp`: runtime state, scope handling, expression evaluation, and statement
-  execution
+- `src/tree_interpreter/runtime_value.h`, `src/tree_interpreter/runtime_value.cpp`: runtime value model and operations
+- `src/tree_interpreter/runtime_state.h`, `src/tree_interpreter/runtime_state.cpp`: function table, call frames, and scopes
+- `src/tree_interpreter/tree_interpreter.cpp`: AST execution and expression evaluation
 - `src/common/overloaded.h`: helper for `std::visit`
 
 ### Tests
@@ -132,11 +133,11 @@ Current language support:
 - `let` declarations with required initializers
 - assignment to existing variables
 - `return;` and `return expr;`
-- integer, boolean, and `nothing` literals
+- integer, double, boolean, and `nothing` literals
 - identifier expressions
 - unary `-`, `!`
-- arithmetic `+`, `-`, `*`, `/`, `%`
-- relational `<`, `<=`, `>`, `>=`
+- arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
+- relational `<`, `<=`, `>`, `>=` on numeric values
 - equality `==`, `!=`
 - logical `&&`, `||`
 - parenthesized expressions
@@ -150,12 +151,12 @@ Current language support:
 
 ## Semantics
 
-- runtime values are `int64_t`, `bool`, and `nothing`
-- `false`, `nothing`, and integer `0` are falsy
-- nonzero integers and `true` are truthy
+- runtime values are `int64_t`, `double`, `bool`, and `nothing`
+- `false`, `nothing`, integer `0`, and double `0.0` are falsy
+- nonzero integers, nonzero doubles, and `true` are truthy
 - functions implicitly return `nothing` if no `return` executes
 - `main` must exist and must not take parameters
-- function arguments are evaluated left-to-right in the caller
+- function arguments are evaluated left-to-right in the caller before the function is looked up and called
 - each function call creates a fresh call frame
 - parameters and top-level function locals live in the same function scope
 - blocks use lexical scoping with shadowing

@@ -1,1 +1,1 @@
-RequireIntegerValue: value must be an integer
+ValidateNumericValue: value must be a double or integer

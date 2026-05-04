@@ -1,0 +1,6 @@
+fn main() {
+    println(1.0 == 1);
+    println(1.5 != 1);
+    println(1.0 == true);
+    println(0.0 == false);
+}

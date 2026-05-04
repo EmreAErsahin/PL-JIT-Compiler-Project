@@ -7,7 +7,7 @@ This repository is currently a small C++23 interpreter project built around a ha
 - Build system: CMake with a thin `Makefile` wrapper
 - Main binary: `interpreter`
 - Language implementation pipeline: source file -> PEG parser -> handwritten AST -> tree interpreter
-- Current runtime model: dynamically typed values implemented as `std::variant<int64_t, bool, NothingValue>`
+- Current runtime model: dynamically typed values implemented as `std::variant<int64_t, double, bool, NothingValue>`
 - Current program model: multiple top-level functions, with CLI execution starting at `main`
 - Testing model: golden-file tests comparing exact stdout for passing cases and exact stderr for failing cases
 - Long-term direction: larger scripting language plus VM / GC / JIT, documented in `README.md`
@@ -54,11 +54,11 @@ The current code implements this subset today:
 - `let` declarations with required initializer
 - Assignment to an existing variable
 - `return` with and without a value
-- Integer, boolean, and `nothing` literals
+- Integer, double, boolean, and `nothing` literals
 - Identifier expressions
 - Function calls in expression and statement position
-- Arithmetic `+`, `-`, `*`, `/` on integers only
-- Relational `<`, `<=`, `>`, `>=` on integers only
+- Arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
+- Relational `<`, `<=`, `>`, `>=` on numeric values
 - Equality `==`, `!=` across all current runtime value types
 - Logical `&&`, `||` with short-circuit behavior
 - Parenthesized expressions
@@ -75,11 +75,12 @@ The current code implements this subset today:
 
 - The parser grammar is `Program <- Function+`
 - Functions implicitly return `nothing` when no `return` is executed
-- There are no arrays, tables, strings, floats, closures, unary operators, modulo, or expression statements yet
-- Runtime values are only `int64_t`, `bool`, and `NothingValue`
-- Truthiness currently treats `false`, `nothing`, and integer `0` as falsy; nonzero integers and `true` are truthy
+- There are no arrays, tables, strings, closures, or expression statements yet
+- Runtime values are only `int64_t`, `double`, `bool`, and `NothingValue`
+- Truthiness currently treats `false`, `nothing`, integer `0`, and double `0.0` as falsy; nonzero numbers and `true` are truthy
 - Logical operators return booleans, not original operands
 - Equality on mismatched runtime types evaluates to `false`
+- Function call arguments are evaluated before the function is looked up and called
 - `break` and `continue` outside loops are detected at runtime, not during parsing or semantic analysis
 - Parse and runtime failures are surfaced as `std::runtime_error` messages printed to stderr by `main.cpp`
 - Test fixtures depend on exact wording and punctuation of those messages

@@ -23,7 +23,6 @@ std::string ReadFile(const std::filesystem::path& path) {
 }
 
 int main(const int argc, char** argv) {
-  // Handling options that are passed in by user (--debug)
   bool debug = false;
 
   std::filesystem::path source_path;
@@ -42,7 +41,6 @@ int main(const int argc, char** argv) {
     return 1;
   }
 
-  // Execution of source code begins here
   try {
     const std::string file_contents = ReadFile(source_path);
 
