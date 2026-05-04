@@ -1,0 +1,6 @@
+fn main() {
+    let value = 1.25;
+    println(value);
+    value = value + 2;
+    println(value);
+}

@@ -1,0 +1,6 @@
+fn main() {
+    println(1.5 < 2);
+    println(2 <= 2.0);
+    println(3.5 > 3);
+    println(4 >= 4.5);
+}

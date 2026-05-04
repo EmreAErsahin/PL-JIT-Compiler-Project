@@ -16,7 +16,7 @@
 namespace parser {
   using InfixOperator = std::variant<ast::ArithmeticOperator, ast::RelationalOperator, ast::EqualityOperator, ast::LogicalOperator>;
 
-  // Parsing library requires copyable types
+  // cpp-peglib semantic values are stored as std::any, so parser actions pull them back into concrete AST types.
   template <std::copy_constructible T>
   T CastSemanticValueTo(const std::any& value) {
     return std::any_cast<T>(value);
@@ -24,6 +24,7 @@ namespace parser {
 
   template <typename T>
   T ExtractStatementNode(const std::any& value) {
+    // Grammar statement rules normalize every statement-like node into StatementVariant.
     return std::get<T>(CastSemanticValueTo<ast::StatementVariant>(value));
   }
 
@@ -39,9 +40,11 @@ namespace parser {
     };
   }
 
-  ast::PrintStatement MakePrintStatement(const peg::SemanticValues& semantic_values, const bool new_line) {
+  enum class NewLineIndicator { kNoNewLine, kNewLine };
+
+  ast::PrintStatement MakePrintStatement(const peg::SemanticValues& semantic_values, const NewLineIndicator new_line) {
     ast::PrintStatement print_statement;
-    print_statement.new_line_ = new_line;
+    print_statement.new_line_ = new_line == NewLineIndicator::kNewLine;
     if (!semantic_values.empty()) {
       print_statement.print_expression_ = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]);
     }
@@ -60,14 +63,11 @@ namespace parser {
     };
 
     parser["Function"] = [](const peg::SemanticValues& semantic_values) {
-      ast::Function function;
-
-      function.identifier_ = CastSemanticValueTo<ast::Identifier>(semantic_values[0]);
-      function.parameters_ = CastSemanticValueTo<std::vector<ast::Identifier>>(semantic_values[1]);
-
-      function.function_block_ = ExtractStatementNode<ast::BlockPointer>(semantic_values[2]);
-
-      return function;
+      return ast::Function{
+        .identifier_ = CastSemanticValueTo<ast::Identifier>(semantic_values[0]),
+        .parameters_ = CastSemanticValueTo<std::vector<ast::Identifier>>(semantic_values[1]),
+        .function_block_ = ExtractStatementNode<ast::BlockPointer>(semantic_values[2])
+      };
     };
 
     parser["ParameterList"] = [](const peg::SemanticValues& semantic_values) {
@@ -84,11 +84,11 @@ namespace parser {
     parser["EmptyParameters"] = [](const peg::SemanticValues&) { return std::vector<ast::Identifier>{}; };
 
     parser["PrintStatement"] = [](const peg::SemanticValues& semantic_values) {
-      return ast::StatementVariant{MakePrintStatement(semantic_values, false)};
+      return ast::StatementVariant{MakePrintStatement(semantic_values, NewLineIndicator::kNoNewLine)};
     };
 
     parser["PrintlnStatement"] = [](const peg::SemanticValues& semantic_values) {
-      return ast::StatementVariant{MakePrintStatement(semantic_values, true)};
+      return ast::StatementVariant{MakePrintStatement(semantic_values, NewLineIndicator::kNewLine)};
     };
 
     parser["LetStatement"] = [](const peg::SemanticValues& semantic_values) {
@@ -110,7 +110,6 @@ namespace parser {
     };
 
     parser["IfStatement"] = [](const peg::SemanticValues& semantic_values) {
-      // First two semantic values are if, last one is else if it's present, everything in the middle is else ifs
       auto if_condition = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]);
       auto if_block = ExtractStatementNode<ast::BlockPointer>(semantic_values[1]);
 
@@ -150,18 +149,13 @@ namespace parser {
     };
 
     parser["ForStatement"] = [](const peg::SemanticValues& semantic_values) {
-      // Statements are all held as statement variant, so we cant any cast straight to let statement / assignment statement
-      auto initializer = ExtractStatementNode<ast::LetStatement>(semantic_values[0]);
-      auto condition = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1]);
-      auto update = ExtractStatementNode<ast::AssignmentStatement>(semantic_values[2]);
-      auto for_block = ExtractStatementNode<ast::BlockPointer>(semantic_values[3]);
-
+      // For loop grammar reuses statement rules, so the initializer/update are extracted from StatementVariant.
       return ast::StatementVariant{
         ast::ForStatement{
-                          .initializer_ = std::move(initializer),
-                          .condition_ = std::move(condition),
-                          .update_ = std::move(update),
-                          .for_block_ = std::move(for_block)
+                          .initializer_ = ExtractStatementNode<ast::LetStatement>(semantic_values[0]),
+                          .condition_ = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1]),
+                          .update_ = ExtractStatementNode<ast::AssignmentStatement>(semantic_values[2]),
+                          .for_block_ = ExtractStatementNode<ast::BlockPointer>(semantic_values[3])
         }
       };
     };
@@ -197,6 +191,10 @@ namespace parser {
       return ast::ExpressionVariant{ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
     };
 
+    parser["Double"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{ast::DoubleLiteralExpression{semantic_values.token_to_number<double>()}};
+    };
+
     parser["Bool"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{ast::BoolLiteralExpression{semantic_values.choice() == 0}};
     };
@@ -204,15 +202,16 @@ namespace parser {
     parser["Nothing"] = [](const peg::SemanticValues&) { return ast::ExpressionVariant{ast::NothingLiteralExpression{}}; };
 
     parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
-      ast::FunctionCallExpression function_call_expression;
-      function_call_expression.function_name_ = CastSemanticValueTo<ast::Identifier>(semantic_values[0]);
-      function_call_expression.arguments_ = CastSemanticValueTo<std::vector<ast::CopyableExpressionPointer>>(semantic_values[1]);
-
-      return ast::ExpressionVariant{std::move(function_call_expression)};
+      return ast::ExpressionVariant{
+        ast::FunctionCallExpression{
+                                    .function_name_ = CastSemanticValueTo<ast::Identifier>(semantic_values[0]),
+                                    .arguments_ = CastSemanticValueTo<std::vector<ast::ExpressionPointer>>(semantic_values[1])
+        }
+      };
     };
 
     parser["ArgumentList"] = [](const peg::SemanticValues& semantic_values) {
-      std::vector<ast::CopyableExpressionPointer> arguments;
+      std::vector<ast::ExpressionPointer> arguments;
       arguments.reserve(semantic_values.size());
 
       for (const auto& semantic_value : semantic_values) {
@@ -222,7 +221,7 @@ namespace parser {
       return arguments;
     };
 
-    parser["EmptyArguments"] = [](const peg::SemanticValues&) { return std::vector<ast::CopyableExpressionPointer>{}; };
+    parser["EmptyArguments"] = [](const peg::SemanticValues&) { return std::vector<ast::ExpressionPointer>{}; };
 
     parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{ast::IdentifierExpression{CastSemanticValueTo<ast::Identifier>(semantic_values[0])}};
@@ -232,14 +231,15 @@ namespace parser {
       const auto operator_token = semantic_values.token_to_string();
       if (operator_token == "-") {
         return ast::UnaryOperator::kNegate;
-      } else if (operator_token == "!") {
+      }
+      if (operator_token == "!") {
         return ast::UnaryOperator::kNot;
       }
       throw std::runtime_error("UnaryOperator: unsupported operator");
     };
 
     parser["UnaryExpression"] = [](const peg::SemanticValues& semantic_values) {
-      // We can never have a unary operator on its own, so we know this is a sole expression (atom in grammar)
+      // A single semantic value means this rule matched Atom rather than UnaryOperator UnaryExpression.
       if (semantic_values.size() == 1) {
         return CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]);
       }
@@ -256,29 +256,41 @@ namespace parser {
       const auto operator_token = semantic_values.token_to_string();
       if (operator_token == "+") {
         return InfixOperator{ast::ArithmeticOperator::kAdd};
-      } else if (operator_token == "-") {
+      }
+      if (operator_token == "-") {
         return InfixOperator{ast::ArithmeticOperator::kSubtract};
-      } else if (operator_token == "*") {
+      }
+      if (operator_token == "*") {
         return InfixOperator{ast::ArithmeticOperator::kMultiply};
-      } else if (operator_token == "/") {
+      }
+      if (operator_token == "/") {
         return InfixOperator{ast::ArithmeticOperator::kDivide};
-      } else if (operator_token == "%") {
+      }
+      if (operator_token == "%") {
         return InfixOperator{ast::ArithmeticOperator::kModulo};
-      } else if (operator_token == "<") {
+      }
+      if (operator_token == "<") {
         return InfixOperator{ast::RelationalOperator::kLessThan};
-      } else if (operator_token == "<=") {
+      }
+      if (operator_token == "<=") {
         return InfixOperator{ast::RelationalOperator::kLessThanOrEqual};
-      } else if (operator_token == ">") {
+      }
+      if (operator_token == ">") {
         return InfixOperator{ast::RelationalOperator::kGreaterThan};
-      } else if (operator_token == ">=") {
+      }
+      if (operator_token == ">=") {
         return InfixOperator{ast::RelationalOperator::kGreaterThanOrEqual};
-      } else if (operator_token == "==") {
+      }
+      if (operator_token == "==") {
         return InfixOperator{ast::EqualityOperator::kEqual};
-      } else if (operator_token == "!=") {
+      }
+      if (operator_token == "!=") {
         return InfixOperator{ast::EqualityOperator::kNotEqual};
-      } else if (operator_token == "&&") {
+      }
+      if (operator_token == "&&") {
         return InfixOperator{ast::LogicalOperator::kAnd};
-      } else if (operator_token == "||") {
+      }
+      if (operator_token == "||") {
         return InfixOperator{ast::LogicalOperator::kOr};
       }
       throw std::runtime_error("InfixOperator: unsupported operator");
@@ -299,6 +311,7 @@ namespace parser {
         return left_operand;
       }
 
+      // cpp-peglib's precedence helper reduces one operator at a time into the AST shape.
       const auto infix_operator = CastSemanticValueTo<InfixOperator>(semantic_values[1]);
       auto right_operand = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[2]);
 
@@ -345,7 +358,7 @@ namespace parser {
       return program;
     };
 
-    // Trades memory usage for better speed with memoization of grammar rules
+    // Memoization avoids repeated parsing work in the expression-heavy grammar.
     parser.enable_packrat_parsing();
 
     return parser;

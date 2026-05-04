@@ -29,7 +29,7 @@ namespace ast_walk {
     return joined_identifiers;
   }
 
-  std::string ToString(std::span<const ast::CopyableExpressionPointer> arguments) {
+  std::string ToString(std::span<const ast::ExpressionPointer> arguments) {
     std::string joined_arguments;
     bool first_argument = true;
     for (const auto& argument : arguments) {
@@ -96,6 +96,7 @@ namespace ast_walk {
     return std::visit(
       template_helpers::Overloaded{
         [](const ast::IntegerLiteralExpression& integer_expression) -> std::string { return std::to_string(integer_expression.value_); },
+        [](const ast::DoubleLiteralExpression& double_expression) -> std::string { return std::format("{:g}", double_expression.value_); },
         [](const ast::BoolLiteralExpression& bool_expression) -> std::string { return bool_expression.value_ ? "true" : "false"; },
         [](const ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
         [](const ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
@@ -210,7 +211,8 @@ namespace ast_walk {
             block_string += Indentation(depth) + "}\n";
           },
           [&block_string, depth](const ast::FunctionCallStatement& function_call_statement) {
-            block_string += std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{function_call_statement.function_call_}));
+            block_string +=
+              std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{function_call_statement.function_call_}));
           }
         },
         statement_variant

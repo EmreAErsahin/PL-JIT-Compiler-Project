@@ -5,234 +5,21 @@
 #include <ranges>
 #include <span>
 #include <stdexcept>
-#include <string>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include "../common/overloaded.h"
+#include "runtime_state.h"
+#include "runtime_value.h"
 #include "tree_interpreter.h"
 
 namespace tree_interpreter {
-  struct NothingValue {};
-
-  // Runtime values (what expression are evaluated into)
-  using Value = std::variant<int64_t, bool, NothingValue>;
-
-  // {Variable Name, Variable Value}
-  using Scope = std::unordered_map<std::string, Value>;
-
-  // Scope for one function
-  struct CallFrame {
-    std::vector<Scope> scopes_;
-  };
-
   enum class ControlFlow { kNormal, kReturn, kContinue, kBreak };
 
   struct ExecutionResult {
     ControlFlow control_flow_ = ControlFlow::kNormal;
-    std::optional<Value> return_value_ = std::nullopt;
-  };
-
-  bool IsTruthy(const Value& value) {
-    return std::visit(
-      template_helpers::Overloaded{
-        [](const int64_t integer_value) { return integer_value != 0; },
-        [](const bool bool_value) { return bool_value; },
-        [](const NothingValue&) { return false; },
-      },
-      value
-    );
-  }
-
-  int64_t RequireIntegerValue(const Value& value) {
-    const auto integer_value = std::get_if<int64_t>(&value);
-    if (!integer_value) {
-      throw std::runtime_error("RequireIntegerValue: value must be an integer");
-    }
-
-    return *integer_value;
-  }
-
-  Value ExecuteArithmeticOperation(const int64_t left_value, const ast::ArithmeticOperator arithmetic_operator, const int64_t right_value) {
-    switch (arithmetic_operator) {
-      case ast::ArithmeticOperator::kAdd: return left_value + right_value;
-      case ast::ArithmeticOperator::kSubtract: return left_value - right_value;
-      case ast::ArithmeticOperator::kMultiply: return left_value * right_value;
-      case ast::ArithmeticOperator::kDivide:
-        if (right_value == 0) {
-          throw std::runtime_error("ExecuteArithmeticOperation: division by zero");
-        }
-        return left_value / right_value;
-      case ast::ArithmeticOperator::kModulo:
-        if (right_value == 0) {
-          throw std::runtime_error("ExecuteArithmeticOperation: modulo by zero");
-        }
-        return left_value % right_value;
-    }
-
-    throw std::runtime_error("ExecuteArithmeticOperation: unsupported arithmetic operator");
-  }
-
-  Value ExecuteRelationalOperation(const int64_t left_value, const ast::RelationalOperator relational_operator, const int64_t right_value) {
-    switch (relational_operator) {
-      case ast::RelationalOperator::kLessThan: return left_value < right_value;
-      case ast::RelationalOperator::kLessThanOrEqual: return left_value <= right_value;
-      case ast::RelationalOperator::kGreaterThan: return left_value > right_value;
-      case ast::RelationalOperator::kGreaterThanOrEqual: return left_value >= right_value;
-    }
-
-    throw std::runtime_error("ExecuteRelationalOperation: unsupported relational operator");
-  }
-
-  Value ExecuteEqualityOperation(const Value& left_value, const ast::EqualityOperator equality_operator, const Value& right_value) {
-    const bool are_equal = std::visit(
-      template_helpers::Overloaded{
-        [](const int64_t left_integer, const int64_t right_integer) { return left_integer == right_integer; },
-        [](const bool left_bool, const bool right_bool) { return left_bool == right_bool; },
-        [](const NothingValue&, const NothingValue&) { return true; },
-        [](const auto&, const auto&) { return false; },
-      },
-      left_value, right_value
-    );
-
-    switch (equality_operator) {
-      case ast::EqualityOperator::kEqual: return are_equal;
-      case ast::EqualityOperator::kNotEqual: return !are_equal;
-    }
-
-    throw std::runtime_error("ExecuteEqualityOperation: unsupported equality operator");
-  }
-
-  Value ExecuteLogicalOperation(const bool left_value, const ast::LogicalOperator logical_operator, const bool right_value) {
-    switch (logical_operator) {
-      case ast::LogicalOperator::kAnd: return left_value && right_value;
-      case ast::LogicalOperator::kOr: return left_value || right_value;
-    }
-
-    throw std::runtime_error("ExecuteLogicalOperation: unsupported logical operator");
-  }
-
-  Value ExecuteUnaryOperation(const ast::UnaryOperator unary_operator, const Value& operand_value) {
-    switch (unary_operator) {
-      case ast::UnaryOperator::kNegate: return -RequireIntegerValue(operand_value);
-      case ast::UnaryOperator::kNot: return !IsTruthy(operand_value);
-    }
-
-    throw std::runtime_error("ExecuteUnaryOperation: unsupported unary operator");
-  }
-
-  void PrintValue(const Value& value) {
-    std::visit(
-      template_helpers::Overloaded{
-        [](const int64_t integer_value) { std::cout << integer_value; },
-        [](const bool bool_value) { std::cout << (bool_value ? "true" : "false"); },
-        [](const NothingValue&) { std::cout << "nothing"; },
-      },
-      value
-    );
-  }
-
-  class RuntimeState {
-   public:
-    struct ScopeGuard {
-      // Using RAII to add/delete scopes on construction / destruction.
-      explicit ScopeGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) {
-        runtime_state_.CurrentFrame().scopes_.emplace_back();
-      }
-
-      ~ScopeGuard() { runtime_state_.CurrentFrame().scopes_.pop_back(); }
-
-      // Delete copy/move so scope lifetime always matches one guard instance.
-      ScopeGuard(const ScopeGuard&) = delete;
-      ScopeGuard& operator=(const ScopeGuard&) = delete;
-      ScopeGuard(ScopeGuard&&) = delete;
-      ScopeGuard& operator=(ScopeGuard&&) = delete;
-
-     private:
-      RuntimeState& runtime_state_;
-    };
-
-    struct CallFrameGuard {
-      explicit CallFrameGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) { runtime_state_.call_stack_.emplace_back(); }
-
-      ~CallFrameGuard() { runtime_state_.call_stack_.pop_back(); }
-
-      CallFrameGuard(const CallFrameGuard&) = delete;
-      CallFrameGuard& operator=(const CallFrameGuard&) = delete;
-      CallFrameGuard(CallFrameGuard&&) = delete;
-      CallFrameGuard& operator=(CallFrameGuard&&) = delete;
-
-     private:
-      RuntimeState& runtime_state_;
-    };
-
-    const ast::Function& BuildFunctionTableAndRequireMain(const ast::Program& program) {
-      for (const auto& current_function : program.functions_) {
-        if (available_functions_.contains(current_function.identifier_.name_)) {
-          throw std::runtime_error("BuildFunctionTableAndRequireMain: duplicate function '" + current_function.identifier_.name_ + "'");
-        }
-        available_functions_.emplace(current_function.identifier_.name_, &current_function);
-      }
-
-      if (!available_functions_.contains("main")) {
-        throw std::runtime_error("BuildFunctionTableAndRequireMain: no main function found");
-      }
-
-      if (!available_functions_.at("main")->parameters_.empty()) {
-        throw std::runtime_error("BuildFunctionTableAndRequireMain: main function must not take parameters");
-      }
-
-      return *available_functions_.at("main");
-    }
-
-    const ast::Function& LookupFunctionOrThrow(const std::string& function_name) const {
-      if (const auto function_iterator = available_functions_.find(function_name); function_iterator != available_functions_.end()) {
-        return *function_iterator->second;
-      }
-
-      throw std::runtime_error("EvaluateExpression: unknown function '" + function_name + "'");
-    }
-
-    const Value& LookupVariable(const std::string& variable_name) const {
-      for (const auto& scope : std::views::reverse(call_stack_.back().scopes_)) {
-        if (const auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
-          return variable_iterator->second;
-        }
-      }
-
-      throw std::runtime_error("EvaluateExpression: unknown variable '" + variable_name + "'");
-    }
-
-    void DeclareVariable(const std::string& variable_name, Value value) {
-      auto& current_scope = CurrentScope();
-      if (const auto variable_iterator = current_scope.find(variable_name); variable_iterator != current_scope.end()) {
-        throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' already declared");
-      }
-
-      current_scope.emplace(variable_name, value);
-    }
-
-    void AssignVariable(const std::string& variable_name, Value value) {
-      for (auto& scope : std::views::reverse(CurrentFrame().scopes_)) {
-        if (auto variable_iterator = scope.find(variable_name); variable_iterator != scope.end()) {
-          variable_iterator->second = value;
-          return;
-        }
-      }
-
-      throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' is not declared");
-    }
-
-   private:
-    // State needed for runtime execution: our function scopes + what functions are callable
-    std::vector<CallFrame> call_stack_;
-    std::unordered_map<std::string, const ast::Function*> available_functions_;
-
-    CallFrame& CurrentFrame() { return call_stack_.back(); }
-
-    Scope& CurrentScope() { return CurrentFrame().scopes_.back(); }
+    std::optional<RuntimeValue> return_value_ = std::nullopt;
   };
 
   class Interpreter {
@@ -245,26 +32,30 @@ namespace tree_interpreter {
    private:
     RuntimeState runtime_state_;
 
-    std::pair<Value, Value>
-    EvaluateBothOperands(const ast::CopyableExpressionPointer& left_operand, const ast::CopyableExpressionPointer& right_operand) {
+    std::pair<RuntimeValue, RuntimeValue>
+    EvaluateBothOperands(const ast::ExpressionPointer& left_operand, const ast::ExpressionPointer& right_operand) {
       return {EvaluateExpression(*left_operand), EvaluateExpression(*right_operand)};
     }
 
-    std::pair<int64_t, int64_t> EvaluateBothOperandsAsIntegers(
-      const ast::CopyableExpressionPointer& left_operand, const ast::CopyableExpressionPointer& right_operand
-    ) {
+    std::pair<RuntimeValue, RuntimeValue>
+    EvaluateBothOperandsAsNumerics(const ast::ExpressionPointer& left_operand, const ast::ExpressionPointer& right_operand) {
       const auto [left_value, right_value] = EvaluateBothOperands(left_operand, right_operand);
 
-      return {RequireIntegerValue(left_value), RequireIntegerValue(right_value)};
+      // Arithmetic and relational operators accept only numeric operands.
+      ValidateNumericValue(left_value);
+      ValidateNumericValue(right_value);
+
+      return {left_value, right_value};
     }
 
-    Value ExecuteFunction(const ast::Function& function, std::span<const Value> arguments) {
+    RuntimeValue ExecuteFunction(const ast::Function& function, std::span<const RuntimeValue> arguments) {
       if (arguments.size() != function.parameters_.size()) {
         throw std::runtime_error("ExecuteFunction: argument count doesn't match parameter count");
       }
 
       RuntimeState::CallFrameGuard call_frame_guard(runtime_state_);
       RuntimeState::ScopeGuard function_level_scope(runtime_state_);
+      // Parameters are ordinary variables in the function's top-level lexical scope.
       for (auto&& [parameter, argument] : std::views::zip(function.parameters_, arguments)) {
         runtime_state_.DeclareVariable(parameter.name_, argument);
       }
@@ -299,8 +90,7 @@ namespace tree_interpreter {
         throw std::runtime_error("ExecuteBlock: null block pointer");
       }
 
-      // With normal blocks like a while block, we create a scope for the variables
-      // If we are executing a function block, we don't need to create a top level bc ExecuteFunction already does for parameters/args
+      // Function bodies reuse the scope created for parameters; nested blocks create their own lexical scope.
       if (block_scope_behavior == BlockScope::kCreateScope) {
         RuntimeState::ScopeGuard block_scope(runtime_state_);
 
@@ -387,7 +177,7 @@ namespace tree_interpreter {
           },
           [this](const ast::FunctionCallStatement& function_call_statement) {
             EvaluateExpression(function_call_statement.function_call_);
-            // Control flow is normal because function call statements are only ran for side effects
+            // Function call statements discard return values and run only for side effects.
             return ExecutionResult{ControlFlow::kNormal};
           },
           [this](const ast::BlockPointer& block_pointer) { return ExecuteBlock(block_pointer); },
@@ -396,50 +186,52 @@ namespace tree_interpreter {
       );
     }
 
-    Value EvaluateExpression(const ast::ExpressionVariant& expression_variant) {
+    RuntimeValue EvaluateExpression(const ast::ExpressionVariant& expression_variant) {
       return std::visit(
         template_helpers::Overloaded{
-          [](const ast::IntegerLiteralExpression& integer_expression) -> Value { return integer_expression.value_; },
-          [](const ast::BoolLiteralExpression& bool_expression) -> Value { return bool_expression.value_; },
-          [](const ast::NothingLiteralExpression&) -> Value { return NothingValue{}; },
-          [this](const ast::IdentifierExpression& identifier_expression) -> Value {
+          [](const ast::IntegerLiteralExpression& integer_expression) -> RuntimeValue { return integer_expression.value_; },
+          [](const ast::DoubleLiteralExpression& double_expression) -> RuntimeValue { return double_expression.value_; },
+          [](const ast::BoolLiteralExpression& bool_expression) -> RuntimeValue { return bool_expression.value_; },
+          [](const ast::NothingLiteralExpression&) -> RuntimeValue { return NothingValue{}; },
+          [this](const ast::IdentifierExpression& identifier_expression) -> RuntimeValue {
             return runtime_state_.LookupVariable(identifier_expression.identifier_.name_);
           },
-          [this](const ast::ArithmeticExpression& arithmetic_expression) -> Value {
+          [this](const ast::ArithmeticExpression& arithmetic_expression) -> RuntimeValue {
             const auto [left_value, right_value] =
-              EvaluateBothOperandsAsIntegers(arithmetic_expression.left_operand_, arithmetic_expression.right_operand_);
+              EvaluateBothOperandsAsNumerics(arithmetic_expression.left_operand_, arithmetic_expression.right_operand_);
+
             return ExecuteArithmeticOperation(left_value, arithmetic_expression.operator_, right_value);
           },
-          [this](const ast::RelationalExpression& relational_expression) -> Value {
+          [this](const ast::RelationalExpression& relational_expression) -> RuntimeValue {
             const auto [left_value, right_value] =
-              EvaluateBothOperandsAsIntegers(relational_expression.left_operand_, relational_expression.right_operand_);
+              EvaluateBothOperandsAsNumerics(relational_expression.left_operand_, relational_expression.right_operand_);
             return ExecuteRelationalOperation(left_value, relational_expression.operator_, right_value);
           },
-          [this](const ast::EqualityExpression& equality_expression) -> Value {
+          [this](const ast::EqualityExpression& equality_expression) -> RuntimeValue {
             const auto [left_value, right_value] =
               EvaluateBothOperands(equality_expression.left_operand_, equality_expression.right_operand_);
             return ExecuteEqualityOperation(left_value, equality_expression.operator_, right_value);
           },
-          [this](const ast::LogicalExpression& logical_expression) -> Value {
-            const auto left_value = EvaluateExpression(*logical_expression.left_operand_);
+          [this](const ast::LogicalExpression& logical_expression) -> RuntimeValue {
+            const bool left_truthiness = IsTruthy(EvaluateExpression(*logical_expression.left_operand_));
 
-            if (logical_expression.operator_ == ast::LogicalOperator::kAnd && !IsTruthy(left_value)) {
+            // Preserve short-circuiting so the right operand is evaluated only when needed.
+            if (logical_expression.operator_ == ast::LogicalOperator::kAnd && !left_truthiness) {
               return false;
             }
-            if (logical_expression.operator_ == ast::LogicalOperator::kOr && IsTruthy(left_value)) {
+            if (logical_expression.operator_ == ast::LogicalOperator::kOr && left_truthiness) {
               return true;
             }
 
             return ExecuteLogicalOperation(
-              IsTruthy(left_value), logical_expression.operator_, IsTruthy(EvaluateExpression(*logical_expression.right_operand_))
+              left_truthiness, logical_expression.operator_, IsTruthy(EvaluateExpression(*logical_expression.right_operand_))
             );
           },
-          [this](const ast::UnaryExpression& unary_expression) -> Value {
+          [this](const ast::UnaryExpression& unary_expression) -> RuntimeValue {
             return ExecuteUnaryOperation(unary_expression.operator_, EvaluateExpression(*unary_expression.operand_));
           },
-          [this](const ast::FunctionCallExpression& function_call_expression) -> Value {
-            // Need to evaluate all the arguments to pass to execute function
-            std::vector<Value> evaluated_arguments;
+          [this](const ast::FunctionCallExpression& function_call_expression) -> RuntimeValue {
+            std::vector<RuntimeValue> evaluated_arguments;
             evaluated_arguments.reserve(function_call_expression.arguments_.size());
 
             std::ranges::transform(

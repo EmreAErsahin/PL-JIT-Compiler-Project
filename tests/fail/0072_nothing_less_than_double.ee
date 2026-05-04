@@ -1,0 +1,3 @@
+fn main() {
+    print(nothing < 1.5);
+}
