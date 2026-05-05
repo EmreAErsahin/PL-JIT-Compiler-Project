@@ -1,0 +1,5 @@
+fn main() {
+    println("line one\nline two");
+    println("left\tright");
+    println("C:\\tmp\\file");
+}

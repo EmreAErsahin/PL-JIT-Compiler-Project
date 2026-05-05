@@ -1,0 +1,11 @@
+fn main() {
+    let message = "outer";
+    println(message);
+    message = "updated";
+    println(message);
+    {
+        let message = "inner";
+        println(message);
+    }
+    println(message);
+}

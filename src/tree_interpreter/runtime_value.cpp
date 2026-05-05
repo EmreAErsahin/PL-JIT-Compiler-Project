@@ -1,6 +1,7 @@
 #include <concepts>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 #include "../common/overloaded.h"
 #include "runtime_value.h"
@@ -9,10 +10,9 @@ namespace tree_interpreter {
   bool IsTruthy(const RuntimeValue& value) {
     return std::visit(
       template_helpers::Overloaded{
-        [](const int64_t integer_value) { return integer_value != 0; },
-        [](const double double_value) { return double_value != 0; },
-        [](const bool bool_value) { return bool_value; },
-        [](const NothingValue&) { return false; },
+        [](const int64_t integer_value) { return integer_value != 0; }, [](const double double_value) { return double_value != 0; },
+        [](const bool bool_value) { return bool_value; }, [](const std::string& string_value) { return !string_value.empty(); },
+        [](const NothingValue&) { return false; }
       },
       value
     );
@@ -43,7 +43,7 @@ namespace tree_interpreter {
       case ast::ArithmeticOperator::kModulo: break;
     }
 
-    throw std::runtime_error("ExecuteArithmeticOperation: unsupported arithmetic operator or modulo attempted with non-integers");
+    throw std::runtime_error("ComputeArithmeticOperation: unsupported arithmetic operator or modulo attempted with non-integers");
   }
 
   RuntimeValue ExecuteArithmeticOperation(
@@ -72,7 +72,7 @@ namespace tree_interpreter {
           return ComputeArithmeticOperation(left_double, arithmetic_operator, right_integer);
         },
         [](const auto&, const auto&) -> RuntimeValue {
-          throw std::runtime_error("ExecuteArithmeticOperation: unsupported arithmetic operator");
+          throw std::runtime_error("ExecuteArithmeticOperation: unsupported operand types for arithmetic operator (bool, nothing, string)");
         },
       },
       left_value, right_value
@@ -90,7 +90,7 @@ namespace tree_interpreter {
       case ast::RelationalOperator::kGreaterThanOrEqual: return left_operand >= right_operand;
     }
 
-    throw std::runtime_error("ExecuteRelationalOperation: unsupported relational operator");
+    throw std::runtime_error("ComputeRelationalOperation: unsupported relational operator");
   }
 
   RuntimeValue ExecuteRelationalOperation(
@@ -111,7 +111,7 @@ namespace tree_interpreter {
           return ComputeRelationalOperation(left_double, relational_operator, right_integer);
         },
         [](const auto&, const auto&) -> RuntimeValue {
-          throw std::runtime_error("ExecuteRelationalOperation: unsupported relational operator");
+          throw std::runtime_error("ExecuteRelationalOperation: unsupported operands for relational operator (bool, nothing, string)");
         },
       },
       left_value, right_value
@@ -128,6 +128,7 @@ namespace tree_interpreter {
         [](const double left_double, const int64_t right_integer) { return left_double == right_integer; },
         [](const bool left_bool, const bool right_bool) { return left_bool == right_bool; },
         [](const NothingValue&, const NothingValue&) { return true; },
+        [](const std::string& left_string, const std::string& right_string) { return left_string == right_string; },
         [](const auto&, const auto&) { return false; },
       },
       left_value, right_value
@@ -173,6 +174,7 @@ namespace tree_interpreter {
         [](const int64_t integer_value) { std::cout << integer_value; },
         [](const double double_value) { std::cout << double_value; },
         [](const bool bool_value) { std::cout << (bool_value ? "true" : "false"); },
+        [](const std::string& string_value) { std::cout << string_value; },
         [](const NothingValue&) { std::cout << "nothing"; },
       },
       value

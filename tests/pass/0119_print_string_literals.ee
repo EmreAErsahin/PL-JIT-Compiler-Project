@@ -1,0 +1,6 @@
+fn main() {
+    print("hello");
+    println(" world");
+    println("");
+    println("done");
+}

@@ -1,0 +1,13 @@
+fn identity(value) {
+    return value;
+}
+
+fn implicit() {
+}
+
+fn main() {
+    println(identity("returned"));
+    let text = identity("assigned");
+    println(text);
+    println(implicit() == nothing);
+}

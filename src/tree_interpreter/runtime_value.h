@@ -2,6 +2,7 @@
 #define runtime_value_H
 
 #include <cstdint>
+#include <string>
 #include <variant>
 
 #include "../ast/ast.h"
@@ -10,7 +11,7 @@ namespace tree_interpreter {
   struct NothingValue {};
 
   // Dynamic value model for evaluated expressions, plus operations that define value semantics.
-  using RuntimeValue = std::variant<int64_t, double, bool, NothingValue>;
+  using RuntimeValue = std::variant<int64_t, double, bool, std::string, NothingValue>;
 
   bool IsTruthy(const RuntimeValue& value);
 

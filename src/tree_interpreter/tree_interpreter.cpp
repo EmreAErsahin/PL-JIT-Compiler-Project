@@ -192,6 +192,7 @@ namespace tree_interpreter {
           [](const ast::IntegerLiteralExpression& integer_expression) -> RuntimeValue { return integer_expression.value_; },
           [](const ast::DoubleLiteralExpression& double_expression) -> RuntimeValue { return double_expression.value_; },
           [](const ast::BoolLiteralExpression& bool_expression) -> RuntimeValue { return bool_expression.value_; },
+          [](const ast::StringLiteralExpression& string_expression) -> RuntimeValue { return string_expression.value_; },
           [](const ast::NothingLiteralExpression&) -> RuntimeValue { return NothingValue{}; },
           [this](const ast::IdentifierExpression& identifier_expression) -> RuntimeValue {
             return runtime_state_.LookupVariable(identifier_expression.identifier_.name_);

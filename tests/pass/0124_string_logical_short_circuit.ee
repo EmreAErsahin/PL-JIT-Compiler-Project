@@ -1,0 +1,10 @@
+fn explode() {
+    return unknown_function();
+}
+
+fn main() {
+    println("" && explode());
+    println("text" || explode());
+    println(!"");
+    println(!"text");
+}
