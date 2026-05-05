@@ -133,7 +133,7 @@ Current language support:
 - `let` declarations with required initializers
 - assignment to existing variables
 - `return;` and `return expr;`
-- integer, double, boolean, and `nothing` literals
+- integer, double, boolean, string, and `nothing` literals
 - identifier expressions
 - unary `-`, `!`
 - arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
@@ -151,9 +151,9 @@ Current language support:
 
 ## Semantics
 
-- runtime values are `int64_t`, `double`, `bool`, and `nothing`
-- `false`, `nothing`, integer `0`, and double `0.0` are falsy
-- nonzero integers, nonzero doubles, and `true` are truthy
+- runtime values are `int64_t`, `double`, `bool`, `string`, and `nothing`
+- `false`, `nothing`, integer `0`, double `0.0`, and empty strings are falsy
+- nonzero integers, nonzero doubles, non-empty strings, and `true` are truthy
 - functions implicitly return `nothing` if no `return` executes
 - `main` must exist and must not take parameters
 - function arguments are evaluated left-to-right in the caller before the function is looked up and called

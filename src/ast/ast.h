@@ -22,6 +22,10 @@ namespace ast {
     bool value_;
   };
 
+  struct StringLiteralExpression {
+    std::string value_;
+  };
+
   struct NothingLiteralExpression {};
 
   // Identifiers name variables, functions, and parameters.
@@ -43,8 +47,9 @@ namespace ast {
   // clang-format on
 
   using ExpressionVariant = std::variant<
-    IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, NothingLiteralExpression, IdentifierExpression,
-    ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression, UnaryExpression, FunctionCallExpression>;
+    IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, StringLiteralExpression, NothingLiteralExpression,
+    IdentifierExpression, ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression, UnaryExpression,
+    FunctionCallExpression>;
 
   // cpp-peglib stores semantic values as std::any, so recursive AST nodes must be copyable during parsing.
   // The AST still owns these nodes logically; shared_ptr is used for parser compatibility.

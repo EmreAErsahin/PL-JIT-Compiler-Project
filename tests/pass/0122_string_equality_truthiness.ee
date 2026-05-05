@@ -1,0 +1,13 @@
+fn main() {
+    println("same" == "same");
+    println("same" != "different");
+    println("" == "");
+    if "text" {
+        println("non-empty truthy");
+    }
+    if "" {
+        println("empty truthy bug");
+    } else {
+        println("empty falsy");
+    }
+}

@@ -16,7 +16,7 @@ namespace ast_walk {
 
   std::string ToString(const ast::ExpressionVariant& expression_variant);
 
-  std::string ToString(std::span<const ast::Identifier> identifiers) {
+  std::string ToString(const std::span<const ast::Identifier> identifiers) {
     std::string joined_identifiers;
     bool first_identifier = true;
     for (const auto& identifier : identifiers) {
@@ -92,12 +92,28 @@ namespace ast_walk {
     throw std::runtime_error("ToString: unsupported unary operator");
   }
 
+  std::string EscapeStringLiteral(const std::string& string_value) {
+    std::string escaped_string;
+    for (const char character : string_value) {
+      switch (character) {
+        case '\n': escaped_string += "\\n"; break;
+        case '\t': escaped_string += "\\t"; break;
+        case '\\': escaped_string += "\\\\"; break;
+        default: escaped_string += character; break;
+      }
+    }
+    return escaped_string;
+  }
+
   std::string ToString(const ast::ExpressionVariant& expression_variant) {
     return std::visit(
       template_helpers::Overloaded{
         [](const ast::IntegerLiteralExpression& integer_expression) -> std::string { return std::to_string(integer_expression.value_); },
         [](const ast::DoubleLiteralExpression& double_expression) -> std::string { return std::format("{:g}", double_expression.value_); },
         [](const ast::BoolLiteralExpression& bool_expression) -> std::string { return bool_expression.value_ ? "true" : "false"; },
+        [](const ast::StringLiteralExpression& string_expression) -> std::string {
+          return std::format("\"{}\"", EscapeStringLiteral(string_expression.value_));
+        },
         [](const ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
         [](const ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
         [](const ast::ArithmeticExpression& arithmetic_expression) -> std::string {

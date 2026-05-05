@@ -199,6 +199,26 @@ namespace parser {
       return ast::ExpressionVariant{ast::BoolLiteralExpression{semantic_values.choice() == 0}};
     };
 
+    parser["String"] = [](const peg::SemanticValues& semantic_values) {
+      const std::string encoded_string = semantic_values.token_to_string();
+      // Decode escape sequences after skipping the captured start/end quotes.
+      std::string decoded_string;
+      for (size_t index = 1; index < encoded_string.size() - 1; ++index) {
+        if (encoded_string[index] != '\\') {
+          decoded_string += encoded_string[index];
+          continue;
+        }
+        ++index;
+        switch (encoded_string[index]) {
+          case 'n': decoded_string += '\n'; break;
+          case 't': decoded_string += '\t'; break;
+          case '\\': decoded_string += '\\'; break;
+          default: throw std::runtime_error("String: unsupported escape sequence");
+        }
+      }
+      return ast::ExpressionVariant{ast::StringLiteralExpression{std::move(decoded_string)}};
+    };
+
     parser["Nothing"] = [](const peg::SemanticValues&) { return ast::ExpressionVariant{ast::NothingLiteralExpression{}}; };
 
     parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
