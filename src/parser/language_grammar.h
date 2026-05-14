@@ -9,44 +9,67 @@ namespace parser_grammar {
   // - ~Rule: parse it, but ignore its semantic value
   // - !Rule: next input must not match Rule
   // - %whitespace: automatically skips between tokens, literal string, & start of input
-  // - precedence/InfixExpressions/Atoms is the built-in functionality to follow PEMDAS
+  // - InfixExpression(...){ precedence ... } is cpp-peglib's built-in expression precedence helper
   inline constexpr std::string_view kPegGrammar = R"(
       Program                    <- Function+
+
       Function                   <- ~KeywordFn Identifier '(' Parameters ')' Block
       Parameters                 <- ParameterList / EmptyParameters
       ParameterList              <- Identifier (',' Identifier)*
       EmptyParameters            <- ''
+
       Block                      <- '{' Statement* '}'
-      Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
+
+      Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / IndexAssignmentStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
       PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
       PrintlnStatement           <- ~KeywordPrintln '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
+      IndexAssignmentStatement   <- IndexExpression '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
+      FunctionCallStatement      <- FunctionCallExpression ';'
+      ReturnStatement            <- ~KeywordReturn Expression? ';'
+      BreakStatement             <- ~KeywordBreak ';'
+      ContinueStatement          <- ~KeywordContinue ';'
       IfStatement                <- ~KeywordIf Expression Block (~KeywordElse ~KeywordIf Expression Block)* (~KeywordElse Block)?
       WhileStatement             <- ~KeywordWhile Expression Block
       ForStatement               <- ~KeywordFor LetStatement Expression ';' ForUpdate Block
       ForUpdate                  <- Identifier '=' Expression
-      ContinueStatement          <- ~KeywordContinue ';'
-      BreakStatement             <- ~KeywordBreak ';'
-      ReturnStatement            <- ~KeywordReturn Expression? ';'
-      FunctionCallStatement      <- FunctionCallExpression ';'
+
       Expression                 <- InfixExpression(UnaryExpression, InfixOperator)
-      UnaryExpression            <- UnaryOperator UnaryExpression / Atom
+      InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*%] >
+      InfixExpression(A, O)      <- A (O A)* {
+        precedence
+          L ||
+          L &&
+          L == !=
+          L < <= > >=
+          L + -
+          L * / %
+      }
+
+      UnaryExpression            <- UnaryOperator UnaryExpression / IndexExpression / Atom
       UnaryOperator              <- < '-' / '!' >
-      Atom                       <- Double / Integer / Bool / String / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
+
+      IndexExpression            <- Atom IndexSuffix+
+      IndexSuffix                <- '[' Expression ']'
+
+      Atom                       <- Double / Integer / Bool / String / Array / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
+      Integer                    <- < [0-9]+ >
+      Double                     <- < [0-9]* '.' [0-9]+ >
+      Bool                       <- ~KeywordTrue / ~KeywordFalse
+      String                     <- < '"' ('\\' [nt\\] / !('"' / '\\' / EndOfLine) .)* '"' >
+      Array                      <- '[' Arguments ']'
+      Nothing                    <- ~KeywordNothing
+
       FunctionCallExpression     <- Identifier '(' Arguments ')'
       Arguments                  <- ArgumentList / EmptyArguments
       ArgumentList               <- Expression (',' Expression)*
       EmptyArguments             <- ''
+
       IdentifierExpression       <- Identifier
-      InfixOperator              <- < '&&' / '||' / '==' / '!=' / '<=' / '>=' / '<' / '>' / [-+/*%] >
-      Bool                       <- ~KeywordTrue / ~KeywordFalse
-      Nothing                    <- ~KeywordNothing
-      Integer                    <- < [0-9]+ >
-      Double                     <- < [0-9]* '.' [0-9]+ >
-      String                     <- < '"' ('\\' [nt\\] / !('"' / '\\' / EndOfLine) .)* '"' >
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
+
       Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
@@ -62,15 +85,7 @@ namespace parser_grammar {
       KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
       KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
-      InfixExpression(A, O)      <- A (O A)* {
-        precedence
-          L ||
-          L &&
-          L == !=
-          L < <= > >=
-          L + -
-          L * / %
-      }
+
       End                        <- EndOfLine / EndOfFile
       EndOfLine                  <- '\r\n' / '\n' / '\r'
       EndOfFile                  <- !.

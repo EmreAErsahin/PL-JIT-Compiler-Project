@@ -1,0 +1,8 @@
+fn main() {
+    let values = [0, 0, 0];
+    let index = 1;
+    values[index + 1] = 9;
+    println(values[0]);
+    println(values[1]);
+    println(values[2]);
+}

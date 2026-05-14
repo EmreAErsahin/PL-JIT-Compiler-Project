@@ -1,0 +1,8 @@
+fn main() {
+    let values = [1, 2.5, true, "hello", nothing];
+    println(values[0]);
+    println(values[1]);
+    println(values[2]);
+    println(values[3]);
+    println(values[4]);
+}

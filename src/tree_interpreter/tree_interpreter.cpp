@@ -99,6 +99,41 @@ namespace tree_interpreter {
       return ExecuteStatementsInBlock(block_pointer);
     }
 
+    struct IndexedSlotLocation {
+      RuntimeArrayPointer array_;
+      size_t index_;
+    };
+
+    IndexedSlotLocation LocateIndexedSlot(const ast::IndexExpression& index_expression) {
+      RuntimeValue current_array = EvaluateExpression(*index_expression.indexed_expression_);
+
+      const size_t index_expression_count = index_expression.indexing_expressions_.size();
+      for (size_t index_expression_index = 0; index_expression_index < index_expression_count; ++index_expression_index) {
+        const auto* current_array_pointer = std::get_if<RuntimeArrayPointer>(&current_array);
+        if (!current_array_pointer || !*current_array_pointer) {
+          throw std::runtime_error("LocateIndexedSlot: cannot index into a non-array value");
+        }
+
+        const RuntimeValue index_value = EvaluateExpression(*index_expression.indexing_expressions_[index_expression_index]);
+        const auto* index_pointer = std::get_if<int64_t>(&index_value);
+        if (!index_pointer) {
+          throw std::runtime_error("LocateIndexedSlot: index must be an integer");
+        }
+        if (*index_pointer < 0 || static_cast<size_t>(*index_pointer) >= (*current_array_pointer)->elements_.size()) {
+          throw std::runtime_error("LocateIndexedSlot: index " + std::to_string(*index_pointer) + " out of bounds");
+        }
+
+        const auto element_index = static_cast<size_t>(*index_pointer);
+        if (index_expression_index == index_expression_count - 1) {
+          return IndexedSlotLocation{.array_ = *current_array_pointer, .index_ = element_index};
+        }
+
+        current_array = (*current_array_pointer)->elements_[element_index];
+      }
+
+      throw std::runtime_error("LocateIndexedSlot: index expression has no indexing expressions");
+    }
+
     ExecutionResult ExecuteStatement(const ast::StatementVariant& statement_variant) {
       return std::visit(
         template_helpers::Overloaded{
@@ -180,6 +215,13 @@ namespace tree_interpreter {
             // Function call statements discard return values and run only for side effects.
             return ExecutionResult{ControlFlow::kNormal};
           },
+          [this](const ast::IndexAssignmentStatement& index_assignment_statement) {
+            const auto [final_array_pointer, final_index] = LocateIndexedSlot(index_assignment_statement.target_);
+
+            final_array_pointer->elements_[final_index] = EvaluateExpression(*index_assignment_statement.assigned_expression_);
+
+            return ExecutionResult{ControlFlow::kNormal};
+          },
           [this](const ast::BlockPointer& block_pointer) { return ExecuteBlock(block_pointer); },
         },
         statement_variant
@@ -193,6 +235,16 @@ namespace tree_interpreter {
           [](const ast::DoubleLiteralExpression& double_expression) -> RuntimeValue { return double_expression.value_; },
           [](const ast::BoolLiteralExpression& bool_expression) -> RuntimeValue { return bool_expression.value_; },
           [](const ast::StringLiteralExpression& string_expression) -> RuntimeValue { return string_expression.value_; },
+          [this](const ast::ArrayLiteralExpression& array_expression) -> RuntimeValue {
+            std::vector<RuntimeValue> evaluated_array_elements;
+            evaluated_array_elements.reserve(array_expression.elements_.size());
+
+            std::ranges::transform(array_expression.elements_, std::back_inserter(evaluated_array_elements), [this](const auto& element) {
+              return EvaluateExpression(*element);
+            });
+
+            return std::make_shared<RuntimeArray>(RuntimeArray{std::move(evaluated_array_elements)});
+          },
           [](const ast::NothingLiteralExpression&) -> RuntimeValue { return NothingValue{}; },
           [this](const ast::IdentifierExpression& identifier_expression) -> RuntimeValue {
             return runtime_state_.LookupVariable(identifier_expression.identifier_.name_);
@@ -243,6 +295,10 @@ namespace tree_interpreter {
             return ExecuteFunction(
               runtime_state_.LookupFunctionOrThrow(function_call_expression.function_name_.name_), evaluated_arguments
             );
+          },
+          [this](const ast::IndexExpression& index_expression) -> RuntimeValue {
+            const auto [final_array_pointer, final_index] = LocateIndexedSlot(index_expression);
+            return final_array_pointer->elements_[final_index];
           },
         },
         expression_variant

@@ -1,0 +1,4 @@
+fn main() {
+    let values = [[1], [2]];
+    println(values[1][1]);
+}

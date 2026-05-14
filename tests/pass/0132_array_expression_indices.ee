@@ -1,0 +1,9 @@
+fn pick() {
+    return 1;
+}
+
+fn main() {
+    let values = [10, 20, 30, 40];
+    println(values[1 + 1]);
+    println(values[pick()]);
+}

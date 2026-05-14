@@ -1,0 +1,7 @@
+fn main() {
+    let first = [1, 2];
+    let second = first;
+    second[0] = 99;
+    println(first[0]);
+    println(second[0]);
+}

@@ -38,22 +38,28 @@ namespace ast {
   };
 
   // clang-format off
+  struct ArrayLiteralExpression;
   struct ArithmeticExpression;
   struct RelationalExpression;
   struct EqualityExpression;
   struct LogicalExpression;
   struct UnaryExpression;
   struct FunctionCallExpression;
+  struct IndexExpression;
   // clang-format on
 
   using ExpressionVariant = std::variant<
-    IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, StringLiteralExpression, NothingLiteralExpression,
-    IdentifierExpression, ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression, UnaryExpression,
-    FunctionCallExpression>;
+    IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, StringLiteralExpression, ArrayLiteralExpression,
+    NothingLiteralExpression, IdentifierExpression, ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression,
+    UnaryExpression, FunctionCallExpression, IndexExpression>;
 
   // cpp-peglib stores semantic values as std::any, so recursive AST nodes must be copyable during parsing.
   // The AST still owns these nodes logically; shared_ptr is used for parser compatibility.
   using ExpressionPointer = std::shared_ptr<ExpressionVariant>;
+
+  struct ArrayLiteralExpression {
+    std::vector<ExpressionPointer> elements_;
+  };
 
   enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide, kModulo };
 
@@ -97,6 +103,11 @@ namespace ast {
   struct FunctionCallExpression {
     Identifier function_name_;
     std::vector<ExpressionPointer> arguments_;
+  };
+
+  struct IndexExpression {
+    ExpressionPointer indexed_expression_;
+    std::vector<ExpressionPointer> indexing_expressions_;
   };
 
   // Shared node for print and println; new_line_ decides whether to append '\n'.
@@ -153,9 +164,14 @@ namespace ast {
     FunctionCallExpression function_call_;
   };
 
+  struct IndexAssignmentStatement {
+    IndexExpression target_;
+    ExpressionPointer assigned_expression_;
+  };
+
   using StatementVariant = std::variant<
     PrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
-    BreakStatement, ReturnStatement, FunctionCallStatement>;
+    BreakStatement, ReturnStatement, FunctionCallStatement, IndexAssignmentStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;

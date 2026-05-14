@@ -134,7 +134,9 @@ Current language support:
 - assignment to existing variables
 - `return;` and `return expr;`
 - integer, double, boolean, string, and `nothing` literals
+- array literals
 - identifier expressions
+- array indexing and indexed assignment
 - unary `-`, `!`
 - arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
 - relational `<`, `<=`, `>`, `>=` on numeric values
@@ -151,9 +153,11 @@ Current language support:
 
 ## Semantics
 
-- runtime values are `int64_t`, `double`, `bool`, `string`, and `nothing`
-- `false`, `nothing`, integer `0`, double `0.0`, and empty strings are falsy
-- nonzero integers, nonzero doubles, non-empty strings, and `true` are truthy
+- runtime values are `int64_t`, `double`, `bool`, `string`, arrays, and `nothing`
+- arrays are fixed-size, mutable, reference-like values whose slots can hold any runtime value type
+- array literal elements are evaluated eagerly from left to right
+- `false`, `nothing`, integer `0`, double `0.0`, empty strings, and empty arrays are falsy
+- nonzero integers, nonzero doubles, non-empty strings, non-empty arrays, and `true` are truthy
 - functions implicitly return `nothing` if no `return` executes
 - `main` must exist and must not take parameters
 - function arguments are evaluated left-to-right in the caller before the function is looked up and called
@@ -166,5 +170,6 @@ Current language support:
 - `println` prints a trailing newline
 - `print()` writes nothing
 - `println()` writes only a newline
+- printing an array value directly is not supported
 - `break` and `continue` outside loops are runtime errors
 - parse and runtime failures are reported as `std::runtime_error` messages on stderr

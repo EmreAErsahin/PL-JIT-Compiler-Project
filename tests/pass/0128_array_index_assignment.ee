@@ -1,0 +1,9 @@
+fn main() {
+    let values = [1, true, "old"];
+    values[0] = 9;
+    values[1] = nothing;
+    values[2] = "new";
+    println(values[0]);
+    println(values[1]);
+    println(values[2]);
+}

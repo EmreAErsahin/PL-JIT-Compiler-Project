@@ -114,6 +114,9 @@ namespace ast_walk {
         [](const ast::StringLiteralExpression& string_expression) -> std::string {
           return std::format("\"{}\"", EscapeStringLiteral(string_expression.value_));
         },
+        [](const ast::ArrayLiteralExpression& array_expression) -> std::string {
+          return std::format("[{}]", ToString(array_expression.elements_));
+        },
         [](const ast::NothingLiteralExpression&) -> std::string { return "nothing"; },
         [](const ast::IdentifierExpression& identifier_expression) -> std::string { return identifier_expression.identifier_.name_; },
         [](const ast::ArithmeticExpression& arithmetic_expression) -> std::string {
@@ -145,6 +148,13 @@ namespace ast_walk {
         },
         [](const ast::FunctionCallExpression& function_call_expression) -> std::string {
           return std::format("{}({})", function_call_expression.function_name_.name_, ToString(function_call_expression.arguments_));
+        },
+        [](const ast::IndexExpression& index_expression) -> std::string {
+          std::string indexed_expression = ToString(*index_expression.indexed_expression_);
+          for (const auto& indexing_expression : index_expression.indexing_expressions_) {
+            indexed_expression += std::format("[{}]", ToString(*indexing_expression));
+          }
+          return indexed_expression;
         },
         [](const auto&) -> std::string { throw std::runtime_error("ToString: unsupported expression type"); }
       },
@@ -229,6 +239,12 @@ namespace ast_walk {
           [&block_string, depth](const ast::FunctionCallStatement& function_call_statement) {
             block_string +=
               std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{function_call_statement.function_call_}));
+          },
+          [&block_string, depth](const ast::IndexAssignmentStatement& index_assignment_statement) {
+            block_string += std::format(
+              "{}{} = {};\n", Indentation(depth), ToString(ast::ExpressionVariant{index_assignment_statement.target_}),
+              ToString(*index_assignment_statement.assigned_expression_)
+            );
           }
         },
         statement_variant
