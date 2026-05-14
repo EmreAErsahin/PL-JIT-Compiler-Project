@@ -1,0 +1,9 @@
+fn make_values() {
+    return [1, true, "done"];
+}
+
+fn main() {
+    let values = make_values();
+    println(values[2]);
+    println(make_values()[1]);
+}

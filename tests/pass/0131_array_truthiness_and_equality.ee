@@ -1,0 +1,14 @@
+fn main() {
+    if [] {
+        println("empty truthy");
+    } else {
+        println("empty falsy");
+    }
+
+    if [nothing] {
+        println("non-empty truthy");
+    }
+
+    println([1, true, "x"] == [1, true, "x"]);
+    println([1, true, "x"] == [1, false, "x"]);
+}

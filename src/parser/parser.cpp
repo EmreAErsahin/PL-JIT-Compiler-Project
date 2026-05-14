@@ -1,7 +1,9 @@
 #include "peglib.h"
 
 #include <concepts>
+#include <algorithm>
 #include <any>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -28,14 +30,30 @@ namespace parser {
     return std::get<T>(CastSemanticValueTo<ast::StatementVariant>(value));
   }
 
+  ast::ExpressionPointer MakeExpressionPointer(ast::ExpressionVariant expression) {
+    return std::make_shared<ast::ExpressionVariant>(std::move(expression));
+  }
+
+  template <std::forward_iterator Iterator>
+  std::vector<ast::ExpressionPointer> MakeExpressionPointers(Iterator begin, Iterator end) {
+    std::vector<ast::ExpressionPointer> expression_pointers;
+    expression_pointers.reserve(std::distance(begin, end));
+
+    std::transform(begin, end, std::back_inserter(expression_pointers), [](const auto& semantic_value) {
+      return CastSemanticValueTo<ast::ExpressionPointer>(semantic_value);
+    });
+
+    return expression_pointers;
+  }
+
   template <typename ExpressionNode, typename Operator>
   ast::ExpressionVariant
   MakeBinaryExpression(ast::ExpressionVariant left_operand, const Operator operator_value, ast::ExpressionVariant right_operand) {
     return ast::ExpressionVariant{
       ExpressionNode{
-                     .left_operand_ = std::make_shared<ast::ExpressionVariant>(std::move(left_operand)),
+                     .left_operand_ = MakeExpressionPointer(std::move(left_operand)),
                      .operator_ = operator_value,
-                     .right_operand_ = std::make_shared<ast::ExpressionVariant>(std::move(right_operand)),
+                     .right_operand_ = MakeExpressionPointer(std::move(right_operand)),
                      }
     };
   }
@@ -106,6 +124,15 @@ namespace parser {
                                  .identifier_ = CastSemanticValueTo<ast::Identifier>(semantic_values[0]),
                                  .assigned_expression_ = CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1]),
                                  }
+      };
+    };
+
+    parser["IndexAssignmentStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::StatementVariant{
+        ast::IndexAssignmentStatement{
+                                      .target_ = std::get<ast::IndexExpression>(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0])),
+                                      .assigned_expression_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1])),
+                                      }
       };
     };
 
@@ -221,6 +248,12 @@ namespace parser {
 
     parser["Nothing"] = [](const peg::SemanticValues&) { return ast::ExpressionVariant{ast::NothingLiteralExpression{}}; };
 
+    parser["Array"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{
+        ast::ArrayLiteralExpression{.elements_ = CastSemanticValueTo<std::vector<ast::ExpressionPointer>>(semantic_values[0])}
+      };
+    };
+
     parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{
         ast::FunctionCallExpression{
@@ -235,7 +268,7 @@ namespace parser {
       arguments.reserve(semantic_values.size());
 
       for (const auto& semantic_value : semantic_values) {
-        arguments.push_back(std::make_shared<ast::ExpressionVariant>(CastSemanticValueTo<ast::ExpressionVariant>(semantic_value)));
+        arguments.push_back(MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_value)));
       }
 
       return arguments;
@@ -245,6 +278,19 @@ namespace parser {
 
     parser["IdentifierExpression"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{ast::IdentifierExpression{CastSemanticValueTo<ast::Identifier>(semantic_values[0])}};
+    };
+
+    parser["IndexSuffix"] = [](const peg::SemanticValues& semantic_values) {
+      return MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]));
+    };
+
+    parser["IndexExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{
+        ast::IndexExpression{
+                             .indexed_expression_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0])),
+                             .indexing_expressions_ = MakeExpressionPointers(std::next(semantic_values.begin()), semantic_values.end()),
+                             }
+      };
     };
 
     parser["UnaryOperator"] = [](const peg::SemanticValues& semantic_values) {
@@ -267,7 +313,7 @@ namespace parser {
       return ast::ExpressionVariant{
         ast::UnaryExpression{
                              .operator_ = CastSemanticValueTo<ast::UnaryOperator>(semantic_values[0]),
-                             .operand_ = std::make_shared<ast::ExpressionVariant>(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1])),
+                             .operand_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1])),
                              }
       };
     };

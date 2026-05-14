@@ -1,0 +1,5 @@
+fn main() {
+    let values = [1];
+    println(false && values[10]);
+    println(true || values[10]);
+}

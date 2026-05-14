@@ -1,5 +1,8 @@
+#include <cmath>
 #include <concepts>
+#include <algorithm>
 #include <iostream>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 
@@ -7,16 +10,22 @@
 #include "runtime_value.h"
 
 namespace tree_interpreter {
+  // clang-format off
   bool IsTruthy(const RuntimeValue& value) {
     return std::visit(
       template_helpers::Overloaded{
-        [](const int64_t integer_value) { return integer_value != 0; }, [](const double double_value) { return double_value != 0; },
-        [](const bool bool_value) { return bool_value; }, [](const std::string& string_value) { return !string_value.empty(); },
+        [](const int64_t integer_value) { return integer_value != 0; },
+        [](const double double_value) { return double_value != 0; },
+        [](const bool bool_value) { return bool_value; },
+        [](const std::string& string_value) { return !string_value.empty(); },
+        [](const RuntimeArrayPointer& array_pointer) { return !array_pointer->elements_.empty(); },
         [](const NothingValue&) { return false; }
       },
       value
     );
   }
+
+  // clang-format on
 
   void ValidateNumericValue(const RuntimeValue& value) {
     if (!(std::holds_alternative<int64_t>(value) || std::holds_alternative<double>(value))) {
@@ -72,7 +81,9 @@ namespace tree_interpreter {
           return ComputeArithmeticOperation(left_double, arithmetic_operator, right_integer);
         },
         [](const auto&, const auto&) -> RuntimeValue {
-          throw std::runtime_error("ExecuteArithmeticOperation: unsupported operand types for arithmetic operator (bool, nothing, string)");
+          throw std::runtime_error(
+            "ExecuteArithmeticOperation: unsupported operand types for arithmetic operator (bool, nothing, string, arrays)"
+          );
         },
       },
       left_value, right_value
@@ -111,7 +122,9 @@ namespace tree_interpreter {
           return ComputeRelationalOperation(left_double, relational_operator, right_integer);
         },
         [](const auto&, const auto&) -> RuntimeValue {
-          throw std::runtime_error("ExecuteRelationalOperation: unsupported operands for relational operator (bool, nothing, string)");
+          throw std::runtime_error(
+            "ExecuteRelationalOperation: unsupported operands for relational operator (bool, nothing, string, arrays)"
+          );
         },
       },
       left_value, right_value
@@ -129,6 +142,23 @@ namespace tree_interpreter {
         [](const bool left_bool, const bool right_bool) { return left_bool == right_bool; },
         [](const NothingValue&, const NothingValue&) { return true; },
         [](const std::string& left_string, const std::string& right_string) { return left_string == right_string; },
+        [](const RuntimeArrayPointer& left_array_pointer, const RuntimeArrayPointer& right_array_pointer) {
+          // clang-format off
+          if (left_array_pointer == right_array_pointer) { return true; }
+
+          const auto& left_elements = left_array_pointer->elements_;
+          const auto& right_elements = right_array_pointer->elements_;
+
+          if (left_elements.size() != right_elements.size()) {
+            return false;
+          }
+
+          return std::ranges::all_of(std::views::zip(left_elements, right_elements), [](const auto& pair) {
+            const auto& [left_element, right_element] = pair;
+            return std::get<bool>(ExecuteEqualityOperation(left_element, ast::EqualityOperator::kEqual, right_element));
+          });
+          // clang-format on
+        },
         [](const auto&, const auto&) { return false; },
       },
       left_value, right_value
@@ -168,6 +198,7 @@ namespace tree_interpreter {
     throw std::runtime_error("ExecuteUnaryOperation: unsupported unary operator");
   }
 
+  // clang-format off
   void PrintValue(const RuntimeValue& value) {
     std::visit(
       template_helpers::Overloaded{
@@ -176,8 +207,11 @@ namespace tree_interpreter {
         [](const bool bool_value) { std::cout << (bool_value ? "true" : "false"); },
         [](const std::string& string_value) { std::cout << string_value; },
         [](const NothingValue&) { std::cout << "nothing"; },
+        [](const RuntimeArrayPointer&) { throw std::runtime_error("PrintValue: array printing is not supported"); }
       },
       value
     );
   }
+
+  // clang-format on
 } // namespace tree_interpreter

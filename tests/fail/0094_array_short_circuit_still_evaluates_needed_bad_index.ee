@@ -1,0 +1,4 @@
+fn main() {
+    let values = [1];
+    println(true && values[10]);
+}

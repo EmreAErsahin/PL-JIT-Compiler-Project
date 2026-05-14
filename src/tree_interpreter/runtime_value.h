@@ -2,16 +2,26 @@
 #define runtime_value_H
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "../ast/ast.h"
 
 namespace tree_interpreter {
   struct NothingValue {};
 
+  struct RuntimeArray;
+
+  using RuntimeArrayPointer = std::shared_ptr<RuntimeArray>;
+
   // Dynamic value model for evaluated expressions, plus operations that define value semantics.
-  using RuntimeValue = std::variant<int64_t, double, bool, std::string, NothingValue>;
+  using RuntimeValue = std::variant<int64_t, double, bool, std::string, NothingValue, RuntimeArrayPointer>;
+
+  struct RuntimeArray {
+    std::vector<RuntimeValue> elements_;
+  };
 
   bool IsTruthy(const RuntimeValue& value);
 

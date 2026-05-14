@@ -1,0 +1,9 @@
+fn replace_first(values) {
+    values[0] = "changed";
+}
+
+fn main() {
+    let values = ["original", 2];
+    replace_first(values);
+    println(values[0]);
+}

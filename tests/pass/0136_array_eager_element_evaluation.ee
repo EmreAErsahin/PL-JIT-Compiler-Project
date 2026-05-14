@@ -1,0 +1,10 @@
+fn make_value() {
+    println("called");
+    return 42;
+}
+
+fn main() {
+    let values = [make_value(), 2];
+    println("after");
+    println(values[0]);
+}
