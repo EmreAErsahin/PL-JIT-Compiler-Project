@@ -47,12 +47,14 @@ namespace ast {
   struct FunctionCallExpression;
   struct IndexExpression;
   struct LengthExpression;
+  struct PushExpression;
+  struct PopExpression;
   // clang-format on
 
   using ExpressionVariant = std::variant<
     IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, StringLiteralExpression, ArrayLiteralExpression,
     NothingLiteralExpression, IdentifierExpression, ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression,
-    UnaryExpression, FunctionCallExpression, IndexExpression, LengthExpression>;
+    UnaryExpression, FunctionCallExpression, IndexExpression, LengthExpression, PushExpression, PopExpression>;
 
   // cpp-peglib stores semantic values as std::any, so recursive AST nodes must be copyable during parsing.
   // The AST still owns these nodes logically; shared_ptr is used for parser compatibility.
@@ -60,6 +62,15 @@ namespace ast {
 
   struct ArrayLiteralExpression {
     std::vector<ExpressionPointer> elements_;
+  };
+
+  struct PushExpression {
+    ExpressionPointer target_;
+    ExpressionPointer pushed_expression_;
+  };
+
+  struct PopExpression {
+    ExpressionPointer target_;
   };
 
   enum class ArithmeticOperator { kAdd, kSubtract, kMultiply, kDivide, kModulo };
@@ -169,6 +180,14 @@ namespace ast {
     FunctionCallExpression function_call_;
   };
 
+  struct PushStatement {
+    PushExpression push_expression_;
+  };
+
+  struct PopStatement {
+    PopExpression pop_expression_;
+  };
+
   struct IndexAssignmentStatement {
     IndexExpression target_;
     ExpressionPointer assigned_expression_;
@@ -176,7 +195,7 @@ namespace ast {
 
   using StatementVariant = std::variant<
     PrintStatement, LetStatement, AssignmentStatement, BlockPointer, IfStatement, WhileStatement, ForStatement, ContinueStatement,
-    BreakStatement, ReturnStatement, FunctionCallStatement, IndexAssignmentStatement>;
+    BreakStatement, ReturnStatement, FunctionCallStatement, PushStatement, PopStatement, IndexAssignmentStatement>;
 
   struct Block {
     std::vector<StatementVariant> statements_;

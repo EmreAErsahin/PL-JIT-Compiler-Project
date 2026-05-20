@@ -1,0 +1,6 @@
+fn main() {
+    let arr = [];
+    println(push(arr, 1));
+    println(len(arr));
+    println(arr[0]);
+}

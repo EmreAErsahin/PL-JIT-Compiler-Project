@@ -1,0 +1,7 @@
+fn main() {
+    let outer = [[]];
+    push(outer[0], "x");
+    println(outer[0][0]);
+    println(pop(outer[0]));
+    println(len(outer[0]));
+}

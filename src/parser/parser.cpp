@@ -214,6 +214,18 @@ namespace parser {
       }};
     };
 
+    parser["PushStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::StatementVariant{ast::PushStatement{
+        .push_expression_ = std::get<ast::PushExpression>(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]))
+      }};
+    };
+
+    parser["PopStatement"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::StatementVariant{ast::PopStatement{
+        .pop_expression_ = std::get<ast::PopExpression>(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]))
+      }};
+    };
+
     parser["Integer"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{ast::IntegerLiteralExpression{semantic_values.token_to_number<int64_t>()}};
     };
@@ -257,6 +269,21 @@ namespace parser {
     parser["LengthExpression"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{
         ast::LengthExpression{.expression_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]))}
+      };
+    };
+
+    parser["PushExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{
+        ast::PushExpression{
+                            .target_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0])),
+                            .pushed_expression_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[1])),
+                            }
+      };
+    };
+
+    parser["PopExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{
+        ast::PopExpression{.target_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]))}
       };
     };
 

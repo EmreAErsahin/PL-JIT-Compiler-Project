@@ -152,6 +152,12 @@ namespace ast_walk {
         [](const ast::LengthExpression& length_expression) -> std::string {
           return std::format("len({})", ToString(*length_expression.expression_));
         },
+        [](const ast::PushExpression& push_expression) -> std::string {
+          return std::format("push({}, {})", ToString(*push_expression.target_), ToString(*push_expression.pushed_expression_));
+        },
+        [](const ast::PopExpression& pop_expression) -> std::string {
+          return std::format("pop({})", ToString(*pop_expression.target_));
+        },
         [](const ast::IndexExpression& index_expression) -> std::string {
           std::string indexed_expression = ToString(*index_expression.indexed_expression_);
           for (const auto& indexing_expression : index_expression.indexing_expressions_) {
@@ -242,6 +248,12 @@ namespace ast_walk {
           [&block_string, depth](const ast::FunctionCallStatement& function_call_statement) {
             block_string +=
               std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{function_call_statement.function_call_}));
+          },
+          [&block_string, depth](const ast::PushStatement& push_statement) {
+            block_string += std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{push_statement.push_expression_}));
+          },
+          [&block_string, depth](const ast::PopStatement& pop_statement) {
+            block_string += std::format("{}{};\n", Indentation(depth), ToString(ast::ExpressionVariant{pop_statement.pop_expression_}));
           },
           [&block_string, depth](const ast::IndexAssignmentStatement& index_assignment_statement) {
             block_string += std::format(
