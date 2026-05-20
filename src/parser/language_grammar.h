@@ -53,13 +53,15 @@ namespace parser_grammar {
       IndexExpression            <- Atom IndexSuffix+
       IndexSuffix                <- '[' Expression ']'
 
-      Atom                       <- Double / Integer / Bool / String / Array / Nothing / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
+      Atom                       <- Double / Integer / Bool / String / Array / Nothing / LengthExpression / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
       Integer                    <- < [0-9]+ >
       Double                     <- < [0-9]* '.' [0-9]+ >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
       String                     <- < '"' ('\\' [nt\\] / !('"' / '\\' / EndOfLine) .)* '"' >
       Array                      <- '[' Arguments ']'
       Nothing                    <- ~KeywordNothing
+
+      LengthExpression           <- ~KeywordLength '(' Expression ')'
 
       FunctionCallExpression     <- Identifier '(' Arguments ')'
       Arguments                  <- ArgumentList / EmptyArguments
@@ -70,7 +72,7 @@ namespace parser_grammar {
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
 
-      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn
+      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn / KeywordLength
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
       KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
@@ -85,6 +87,7 @@ namespace parser_grammar {
       KeywordContinue            <- < 'continue' ![a-zA-Z0-9_] >
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
       KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
+      KeywordLength              <- < 'len' ![a-zA-Z0-9_] >
 
       End                        <- EndOfLine / EndOfFile
       EndOfLine                  <- '\r\n' / '\n' / '\r'

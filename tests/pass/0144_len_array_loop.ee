@@ -1,0 +1,6 @@
+fn main() {
+    let values = [10, 20, 30];
+    for let i = 0; i < len(values); i = i + 1 {
+        println(values[i]);
+    }
+}
