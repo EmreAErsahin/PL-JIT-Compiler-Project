@@ -254,6 +254,12 @@ namespace parser {
       };
     };
 
+    parser["LengthExpression"] = [](const peg::SemanticValues& semantic_values) {
+      return ast::ExpressionVariant{
+        ast::LengthExpression{.expression_ = MakeExpressionPointer(CastSemanticValueTo<ast::ExpressionVariant>(semantic_values[0]))}
+      };
+    };
+
     parser["FunctionCallExpression"] = [](const peg::SemanticValues& semantic_values) {
       return ast::ExpressionVariant{
         ast::FunctionCallExpression{

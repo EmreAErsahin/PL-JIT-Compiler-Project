@@ -283,6 +283,19 @@ namespace tree_interpreter {
           [this](const ast::UnaryExpression& unary_expression) -> RuntimeValue {
             return ExecuteUnaryOperation(unary_expression.operator_, EvaluateExpression(*unary_expression.operand_));
           },
+          [this](const ast::LengthExpression& length_expression) -> RuntimeValue {
+            const RuntimeValue length_operand = EvaluateExpression(*length_expression.expression_);
+            return std::visit(
+              template_helpers::Overloaded{
+                [](const std::string& string_operand) -> RuntimeValue { return static_cast<int64_t>(string_operand.size()); },
+                [](const RuntimeArrayPointer& array_operand) -> RuntimeValue {
+                  return static_cast<int64_t>(array_operand->elements_.size());
+                },
+                [](const auto&) -> RuntimeValue { throw std::runtime_error("EvaluateExpression: can only take length of string or array"); }
+              },
+              length_operand
+            );
+          },
           [this](const ast::FunctionCallExpression& function_call_expression) -> RuntimeValue {
             std::vector<RuntimeValue> evaluated_arguments;
             evaluated_arguments.reserve(function_call_expression.arguments_.size());

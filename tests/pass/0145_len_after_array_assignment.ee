@@ -1,0 +1,6 @@
+fn main() {
+    let values = [1, 2];
+    values[0] = [3, 4, 5];
+    println(len(values));
+    println(len(values[0]));
+}

@@ -149,6 +149,9 @@ namespace ast_walk {
         [](const ast::FunctionCallExpression& function_call_expression) -> std::string {
           return std::format("{}({})", function_call_expression.function_name_.name_, ToString(function_call_expression.arguments_));
         },
+        [](const ast::LengthExpression& length_expression) -> std::string {
+          return std::format("len({})", ToString(*length_expression.expression_));
+        },
         [](const ast::IndexExpression& index_expression) -> std::string {
           std::string indexed_expression = ToString(*index_expression.indexed_expression_);
           for (const auto& indexing_expression : index_expression.indexing_expressions_) {

@@ -1,0 +1,5 @@
+fn main() {
+    println(len("a\nb"));
+    println(len("a\tb"));
+    println(len("a\\b"));
+}

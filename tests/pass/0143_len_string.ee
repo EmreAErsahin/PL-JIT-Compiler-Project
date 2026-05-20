@@ -1,0 +1,4 @@
+fn main() {
+    println(len("hello"));
+    println(len(""));
+}

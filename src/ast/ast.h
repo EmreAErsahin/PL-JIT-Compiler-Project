@@ -46,12 +46,13 @@ namespace ast {
   struct UnaryExpression;
   struct FunctionCallExpression;
   struct IndexExpression;
+  struct LengthExpression;
   // clang-format on
 
   using ExpressionVariant = std::variant<
     IntegerLiteralExpression, DoubleLiteralExpression, BoolLiteralExpression, StringLiteralExpression, ArrayLiteralExpression,
     NothingLiteralExpression, IdentifierExpression, ArithmeticExpression, RelationalExpression, EqualityExpression, LogicalExpression,
-    UnaryExpression, FunctionCallExpression, IndexExpression>;
+    UnaryExpression, FunctionCallExpression, IndexExpression, LengthExpression>;
 
   // cpp-peglib stores semantic values as std::any, so recursive AST nodes must be copyable during parsing.
   // The AST still owns these nodes logically; shared_ptr is used for parser compatibility.
@@ -91,6 +92,10 @@ namespace ast {
     ExpressionPointer left_operand_;
     LogicalOperator operator_;
     ExpressionPointer right_operand_;
+  };
+
+  struct LengthExpression {
+    ExpressionPointer expression_;
   };
 
   enum class UnaryOperator { kNegate, kNot };
