@@ -20,13 +20,15 @@ namespace parser_grammar {
 
       Block                      <- '{' Statement* '}'
 
-      Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / IndexAssignmentStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / FunctionCallStatement
+      Statement                  <- Block / PrintlnStatement / PrintStatement / LetStatement / IndexAssignmentStatement / AssignmentStatement / IfStatement / WhileStatement / ContinueStatement / BreakStatement / ReturnStatement / ForStatement / PushStatement / PopStatement / FunctionCallStatement
       PrintStatement             <- ~KeywordPrint '(' Expression? ')' ';'
       PrintlnStatement           <- ~KeywordPrintln '(' Expression? ')' ';'
       LetStatement               <- ~KeywordLet Identifier '=' Expression ';'
       IndexAssignmentStatement   <- IndexExpression '=' Expression ';'
       AssignmentStatement        <- Identifier '=' Expression ';'
       FunctionCallStatement      <- FunctionCallExpression ';'
+      PushStatement              <- PushExpression ';'
+      PopStatement               <- PopExpression ';'
       ReturnStatement            <- ~KeywordReturn Expression? ';'
       BreakStatement             <- ~KeywordBreak ';'
       ContinueStatement          <- ~KeywordContinue ';'
@@ -53,7 +55,7 @@ namespace parser_grammar {
       IndexExpression            <- Atom IndexSuffix+
       IndexSuffix                <- '[' Expression ']'
 
-      Atom                       <- Double / Integer / Bool / String / Array / Nothing / LengthExpression / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
+      Atom                       <- Double / Integer / Bool / String / Array / Nothing / LengthExpression / PushExpression / PopExpression / FunctionCallExpression / IdentifierExpression / '(' Expression ')'
       Integer                    <- < [0-9]+ >
       Double                     <- < [0-9]* '.' [0-9]+ >
       Bool                       <- ~KeywordTrue / ~KeywordFalse
@@ -62,6 +64,8 @@ namespace parser_grammar {
       Nothing                    <- ~KeywordNothing
 
       LengthExpression           <- ~KeywordLength '(' Expression ')'
+      PushExpression              <- ~KeywordPush '(' Expression ',' Expression ')'
+      PopExpression               <- ~KeywordPop '(' Expression ')'
 
       FunctionCallExpression     <- Identifier '(' Arguments ')'
       Arguments                  <- ArgumentList / EmptyArguments
@@ -72,7 +76,7 @@ namespace parser_grammar {
       Identifier                 <- !Keyword IdentifierToken
       IdentifierToken            <- < [a-zA-Z_][a-zA-Z0-9_]* >
 
-      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn / KeywordLength
+      Keyword                    <- KeywordFn / KeywordLet / KeywordPrint / KeywordPrintln / KeywordIf / KeywordElse / KeywordTrue / KeywordFalse / KeywordNothing / KeywordWhile / KeywordFor / KeywordContinue / KeywordBreak / KeywordReturn / KeywordLength / KeywordPush / KeywordPop
       KeywordFn                  <- < 'fn' ![a-zA-Z0-9_] >
       KeywordLet                 <- < 'let' ![a-zA-Z0-9_] >
       KeywordPrint               <- < 'print' ![a-zA-Z0-9_] >
@@ -88,6 +92,8 @@ namespace parser_grammar {
       KeywordBreak               <- < 'break' ![a-zA-Z0-9_] >
       KeywordReturn              <- < 'return' ![a-zA-Z0-9_] >
       KeywordLength              <- < 'len' ![a-zA-Z0-9_] >
+      KeywordPush                <- < 'push' ![a-zA-Z0-9_] >
+      KeywordPop                 <- < 'pop' ![a-zA-Z0-9_] >
 
       End                        <- EndOfLine / EndOfFile
       EndOfLine                  <- '\r\n' / '\n' / '\r'

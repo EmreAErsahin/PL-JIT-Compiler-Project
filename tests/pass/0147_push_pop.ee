@@ -1,0 +1,12 @@
+fn main() {
+    let arr = [10, 20, 30];
+    pop(arr);
+    pop(arr);
+    println(arr[0]);
+    push(arr, "lol");
+    push(arr, "lol");
+
+    for let i = 0; i < 3; i = i+1 {
+        println(arr[i]);
+    }
+}

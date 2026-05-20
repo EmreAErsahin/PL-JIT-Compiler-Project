@@ -137,6 +137,7 @@ Current language support:
 - array literals
 - identifier expressions
 - array indexing and indexed assignment
+- `push(array, value)` and `pop(array)`
 - unary `-`, `!`
 - arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
 - relational `<`, `<=`, `>`, `>=` on numeric values
@@ -154,8 +155,10 @@ Current language support:
 ## Semantics
 
 - runtime values are `int64_t`, `double`, `bool`, `string`, arrays, and `nothing`
-- arrays are fixed-size, mutable, reference-like values whose slots can hold any runtime value type
+- arrays are mutable, reference-like values whose slots can hold any runtime value type
 - array literal elements are evaluated eagerly from left to right
+- `push` appends to an array and returns `nothing`
+- `pop` removes and returns the last array element
 - `false`, `nothing`, integer `0`, double `0.0`, empty strings, and empty arrays are falsy
 - nonzero integers, nonzero doubles, non-empty strings, non-empty arrays, and `true` are truthy
 - functions implicitly return `nothing` if no `return` executes

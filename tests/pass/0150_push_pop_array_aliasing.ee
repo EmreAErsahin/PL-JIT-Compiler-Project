@@ -1,0 +1,7 @@
+fn main() {
+    let first = [];
+    let second = first;
+    push(first, 42);
+    println(pop(second));
+    println(len(first));
+}

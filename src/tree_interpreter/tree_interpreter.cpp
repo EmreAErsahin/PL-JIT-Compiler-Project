@@ -215,6 +215,14 @@ namespace tree_interpreter {
             // Function call statements discard return values and run only for side effects.
             return ExecutionResult{ControlFlow::kNormal};
           },
+          [this](const ast::PushStatement& push_statement) {
+            EvaluateExpression(push_statement.push_expression_);
+            return ExecutionResult{ControlFlow::kNormal};
+          },
+          [this](const ast::PopStatement& pop_statement) {
+            EvaluateExpression(pop_statement.pop_expression_);
+            return ExecutionResult{ControlFlow::kNormal};
+          },
           [this](const ast::IndexAssignmentStatement& index_assignment_statement) {
             const auto [final_array_pointer, final_index] = LocateIndexedSlot(index_assignment_statement.target_);
 
@@ -295,6 +303,34 @@ namespace tree_interpreter {
               },
               length_operand
             );
+          },
+          [this](const ast::PushExpression& push_expression) -> RuntimeValue {
+            const RuntimeValue target_value = EvaluateExpression(*push_expression.target_);
+            const auto* target_array_pointer = std::get_if<RuntimeArrayPointer>(&target_value);
+            if (!target_array_pointer || !*target_array_pointer) {
+              throw std::runtime_error("EvaluateExpression: can only push to an array");
+            }
+
+            const RuntimeValue pushed_value = EvaluateExpression(*push_expression.pushed_expression_);
+            (*target_array_pointer)->elements_.push_back(pushed_value);
+
+            return NothingValue{};
+          },
+          [this](const ast::PopExpression& pop_expression) -> RuntimeValue {
+            const RuntimeValue target_value = EvaluateExpression(*pop_expression.target_);
+            const auto* target_array_pointer = std::get_if<RuntimeArrayPointer>(&target_value);
+            if (!target_array_pointer || !*target_array_pointer) {
+              throw std::runtime_error("EvaluateExpression: can only pop from an array");
+            }
+
+            if ((*target_array_pointer)->elements_.empty()) {
+              throw std::runtime_error("EvaluateExpression: cannot pop from an empty array");
+            }
+
+            const RuntimeValue popped_value = (*target_array_pointer)->elements_.back();
+            (*target_array_pointer)->elements_.pop_back();
+
+            return popped_value;
           },
           [this](const ast::FunctionCallExpression& function_call_expression) -> RuntimeValue {
             std::vector<RuntimeValue> evaluated_arguments;
