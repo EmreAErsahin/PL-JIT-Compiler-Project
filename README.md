@@ -7,10 +7,10 @@ Current implementation:
 
 - a parser for a custom language
 - a handwritten AST
-- a tree-walk runtime
+- a tree-walk runtime behind a small `ee::VM` wrapper
 - a golden-test-based language implementation project
 
-It is not a VM or JIT yet (this is the future plan)
+It is not a bytecode VM or JIT yet.
 
 ## ReadMe Contents
 
@@ -98,7 +98,8 @@ Scripts:
 
 ### Source
 
-- `src/main.cpp`: CLI entry point, `--debug` handling, top-level error reporting
+- `src/main.cpp`: CLI entry point, `--debug` handling, top-level error reporting, and `ee::VM` invocation
+- `src/vm/vm.h`, `src/vm/vm.cpp`: small `ee::VM` wrapper that loads source files, stores the parsed AST, exposes debug AST output, and runs `main`
 - `src/parser/language_grammar.h`: PEG grammar string
 - `src/parser/parser.h`: parser interface
 - `src/parser/parser.cpp`: parser construction and semantic actions that build the AST
