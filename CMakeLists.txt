@@ -8,6 +8,7 @@ add_executable(interpreter
         src/tree_interpreter/runtime_state.cpp
         src/tree_interpreter/runtime_value.cpp
         src/tree_interpreter/tree_interpreter.cpp
+        src/vm/vm.cpp
 )
 
 target_include_directories(interpreter PRIVATE third_party)

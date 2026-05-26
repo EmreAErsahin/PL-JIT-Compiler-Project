@@ -1,26 +1,9 @@
 #include <exception>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <sstream>
-#include <stdexcept>
 #include <string>
 
-#include "ast/ast.h"
-#include "ast/ast_printer.h"
-#include "parser/parser.h"
-#include "tree_interpreter/tree_interpreter.h"
-
-std::string ReadFile(const std::filesystem::path& path) {
-  std::ifstream input(path);
-  if (!input) {
-    throw std::runtime_error("ReadFile: failed to open file '" + path.string() + "'");
-  }
-
-  std::ostringstream file_contents;
-  file_contents << input.rdbuf();
-  return file_contents.str();
-}
+#include "vm/vm.h"
 
 int main(const int argc, char** argv) {
   bool debug = false;
@@ -42,15 +25,15 @@ int main(const int argc, char** argv) {
   }
 
   try {
-    const std::string file_contents = ReadFile(source_path);
+    ee::VM vm;
 
-    const auto program_ast = parser::ParseFileContentsIntoAST(file_contents);
+    vm.LoadFile(source_path);
 
     if (debug) {
-      std::cout << ast_walk::ToString(program_ast);
+      std::cout << vm.DebugAstString();
     }
 
-    tree_interpreter::ExecuteAstWithTreeInterpreter(program_ast);
+    vm.RunMain();
 
     return 0;
   }
