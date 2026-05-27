@@ -2,10 +2,12 @@
 #define vm_H
 
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 
 #include "../ast/ast.h"
+#include "../tree_interpreter/tree_interpreter.h"
 
 namespace ee {
   class VM {
@@ -14,10 +16,11 @@ namespace ee {
 
     [[nodiscard]] std::string DebugAstString() const;
 
-    void RunMain() const;
+    void Call(const std::string& function_name);
 
    private:
-    std::optional<ast::Program> program_ast_;
+    std::unique_ptr<ast::Program> program_ast_;
+    std::optional<tree_interpreter::Interpreter> interpreter_;
   };
 } // namespace ee
 

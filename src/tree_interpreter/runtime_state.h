@@ -48,7 +48,7 @@ namespace tree_interpreter {
       RuntimeState& runtime_state_;
     };
 
-    const ast::Function& BuildFunctionTableAndRequireMain(const ast::Program& program);
+    void BuildFunctionTable(const ast::Program& program);
 
     const ast::Function& LookupFunctionOrThrow(const std::string& function_name) const;
 

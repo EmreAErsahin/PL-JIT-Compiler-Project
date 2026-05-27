@@ -33,7 +33,7 @@ int main(const int argc, char** argv) {
       std::cout << vm.DebugAstString();
     }
 
-    vm.RunMain();
+    vm.Call("main");
 
     return 0;
   }
