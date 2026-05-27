@@ -9,33 +9,26 @@ namespace tree_interpreter {
     runtime_state_.CurrentFrame().scopes_.emplace_back();
   }
 
-  RuntimeState::ScopeGuard::~ScopeGuard() { runtime_state_.CurrentFrame().scopes_.pop_back(); }
+  RuntimeState::ScopeGuard::~ScopeGuard() {
+    runtime_state_.CurrentFrame().scopes_.pop_back();
+  }
 
   RuntimeState::CallFrameGuard::CallFrameGuard(RuntimeState& runtime_state) : runtime_state_(runtime_state) {
     runtime_state_.call_stack_.emplace_back();
   }
 
-  RuntimeState::CallFrameGuard::~CallFrameGuard() { runtime_state_.call_stack_.pop_back(); }
+  RuntimeState::CallFrameGuard::~CallFrameGuard() {
+    runtime_state_.call_stack_.pop_back();
+  }
 
-  const ast::Function& RuntimeState::BuildFunctionTableAndRequireMain(const ast::Program& program) {
+  void RuntimeState::BuildFunctionTable(const ast::Program& program) {
     // Function declarations are global and callable regardless of source order.
     for (const auto& current_function : program.functions_) {
       if (available_functions_.contains(current_function.identifier_.name_)) {
-        throw std::runtime_error("BuildFunctionTableAndRequireMain: duplicate function '" + current_function.identifier_.name_ + "'");
+        throw std::runtime_error("BuildFunctionTable: duplicate function '" + current_function.identifier_.name_ + "'");
       }
       available_functions_.emplace(current_function.identifier_.name_, &current_function);
     }
-
-    if (!available_functions_.contains("main")) {
-      throw std::runtime_error("BuildFunctionTableAndRequireMain: no main function found");
-    }
-
-    // TODO: Remove once we allow command line arguments
-    if (!available_functions_.at("main")->parameters_.empty()) {
-      throw std::runtime_error("BuildFunctionTableAndRequireMain: main function must not take parameters");
-    }
-
-    return *available_functions_.at("main");
   }
 
   const ast::Function& RuntimeState::LookupFunctionOrThrow(const std::string& function_name) const {
@@ -78,7 +71,11 @@ namespace tree_interpreter {
     throw std::runtime_error("ExecuteStatement: variable '" + variable_name + "' is not declared");
   }
 
-  CallFrame& RuntimeState::CurrentFrame() { return call_stack_.back(); }
+  CallFrame& RuntimeState::CurrentFrame() {
+    return call_stack_.back();
+  }
 
-  Scope& RuntimeState::CurrentScope() { return CurrentFrame().scopes_.back(); }
+  Scope& RuntimeState::CurrentScope() {
+    return CurrentFrame().scopes_.back();
+  }
 } // namespace tree_interpreter

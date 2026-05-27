@@ -99,7 +99,7 @@ Scripts:
 ### Source
 
 - `src/main.cpp`: CLI entry point, `--debug` handling, top-level error reporting, and `ee::VM` invocation
-- `src/vm/vm.h`, `src/vm/vm.cpp`: small `ee::VM` wrapper that loads source files, stores the parsed AST, exposes debug AST output, and runs `main`
+- `src/vm/vm.h`, `src/vm/vm.cpp`: small `ee::VM` wrapper that loads source files, stores the parsed AST, exposes debug AST output, and calls named functions
 - `src/parser/language_grammar.h`: PEG grammar string
 - `src/parser/parser.h`: parser interface
 - `src/parser/parser.cpp`: parser construction and semantic actions that build the AST
@@ -128,7 +128,7 @@ For fixtures:
 Current language support:
 
 - multiple top-level functions
-- required zero-argument `fn main()` entry point
+- CLI execution calls a zero-argument `fn main()` entry point
 - function parameters and function calls
 - `print(...)` and `println(...)`
 - `let` declarations with required initializers
@@ -163,7 +163,7 @@ Current language support:
 - `false`, `nothing`, integer `0`, double `0.0`, empty strings, and empty arrays are falsy
 - nonzero integers, nonzero doubles, non-empty strings, non-empty arrays, and `true` are truthy
 - functions implicitly return `nothing` if no `return` executes
-- `main` must exist and must not take parameters
+- `main` is a CLI convention; source files loaded for embedding can define callable functions without `main`
 - function arguments are evaluated left-to-right in the caller before the function is looked up and called
 - each function call creates a fresh call frame
 - parameters and top-level function locals live in the same function scope

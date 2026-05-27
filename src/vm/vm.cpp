@@ -1,4 +1,5 @@
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -23,7 +24,8 @@ namespace ee {
 
   void VM::LoadFile(const std::filesystem::path& file_path) {
     const std::string file_contents = ReadFile(file_path); // we define this bc ParseFileContentsIntoAst takes a string_view
-    program_ast_ = parser::ParseFileContentsIntoAST(file_contents);
+    program_ast_ = std::make_unique<ast::Program>(parser::ParseFileContentsIntoAST(file_contents));
+    interpreter_ = tree_interpreter::Interpreter{*program_ast_};
   }
 
   std::string VM::DebugAstString() const {
@@ -33,10 +35,11 @@ namespace ee {
     return ast_walk::ToString(*program_ast_);
   }
 
-  void VM::RunMain() const {
-    if (!program_ast_) {
-      throw std::runtime_error("RunMain: no program loaded");
+  void VM::Call(const std::string& function_name) {
+    if (!interpreter_) {
+      throw std::runtime_error("VM::Call: load file hasn't been called to establish proper context");
     }
-    tree_interpreter::ExecuteAstWithTreeInterpreter(*program_ast_);
+    [[maybe_unused]] tree_interpreter::RuntimeValue return_value = interpreter_->ExecuteFunction(function_name, {});
   }
+
 } // namespace ee
