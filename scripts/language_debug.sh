@@ -5,4 +5,4 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
-./build/interpreter --debug "$1"
+./build/interpreter/interpreter --debug "$1"

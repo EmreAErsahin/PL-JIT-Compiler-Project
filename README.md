@@ -1,179 +1,110 @@
 # PL JIT Compiler
 
-Small programming language project in C++23. It runs source files in the custom language by parsing them into an AST,
-optionally printing the parsed form with `--debug`, and then executing them.
+A small C++23 programming language project. It parses `.ee` source files into an AST and executes them with a tree-walk
+interpreter exposed through `ee::VM`.
 
-Current implementation:
+Despite the name, this is not a JIT yet.
 
-- a parser for a custom language
-- a handwritten AST
-- a tree-walk runtime behind a small `ee::VM` wrapper
-- a golden-test-based language implementation project
+## Requirements
 
-It is not a bytecode VM or JIT yet.
-
-## ReadMe Contents
-
-- [Build And Run](#build-and-run)
-- [Scripts And Tests](#scripts-and-tests)
-- [Project Layout](#project-layout)
-- [Language](#language)
-- [Semantics](#semantics)
+- CMake 3.20+
+- C++23 compiler
+- Make
 
 ## Build And Run
 
-Requirements:
-
-- CMake `3.20+`
-- C++23 compiler
-
-From the project root:
+Build the CLI interpreter:
 
 ```sh
-make build
-make clean
+make cli
 ```
 
-Run a source file manually:
+Run a program:
 
 ```sh
-./build/interpreter SOURCE
+./build/interpreter/interpreter path/to/file.ee
 ```
 
-Run and print the parsed AST first:
+Print the parsed AST before running:
 
 ```sh
-./build/interpreter --debug SOURCE
+./build/interpreter/interpreter --debug path/to/file.ee
 ```
 
-## Scripts And Tests
+Useful Make targets:
 
-Run one passing or failing fixture:
+- `make cli`: build the command-line interpreter
+- `make runtime`: build only the reusable `ee_runtime` library target
+- `make test`: build and run the full test suite
+- `make clean`: remove `build/`
+
+## Tests
+
+Run everything:
 
 ```sh
-./scripts/run_single_test.sh tests/pass/<name>.ee
-./scripts/run_single_test.sh tests/fail/<name>.ee
+make test
 ```
 
-Run all passing tests:
-
-```sh
-./scripts/run_passing_tests.sh
-```
-
-Run all failing tests:
-
-```sh
-./scripts/run_failing_tests.sh
-```
-
-Run the full suite:
+Run already-built tests directly:
 
 ```sh
 ./scripts/run_all_tests.sh
 ```
 
-The tests are golden-file based:
+The suite has two kinds of golden-file tests:
 
-- passing tests compare exact stdout against `.out`
-- failing tests compare exact stderr against `.err`
-- wording and punctuation of diagnostics matter
+- language tests run `.ee` files through the CLI interpreter
+- embedding tests run C++ executables linked against `ee_runtime`
 
-Scripts:
+Passing tests compare stdout with `.out`. Failing tests compare stderr with `.err`.
 
-- `scripts/run_single_test.sh`: run one fixture and compare output
-- `scripts/run_passing_tests.sh`: run all passing fixtures
-- `scripts/run_failing_tests.sh`: run all failing fixtures
-- `scripts/run_all_tests.sh`: run the full suite
-- `scripts/debug_test.sh`: run one fixture with `--debug`
+Useful scripts:
 
-## Project Layout
+- `scripts/language_single.sh <test.ee>`
+- `scripts/language_passing.sh`
+- `scripts/language_failing.sh`
+- `scripts/language_debug.sh <test.ee>`
+- `scripts/embedding_single.sh <test.cpp>`
+- `scripts/embedding_passing.sh`
+- `scripts/embedding_failing.sh`
 
-### Top level
+## Project Map
 
-- `CMakeLists.txt`: build definition
-- `Makefile`: small wrapper around common CMake commands
-- `README.md`: project overview and usage
-- `third_party/peglib.h`: vendored `cpp-peglib`
+```text
+CMakeLists.txt        build targets and embedding-test discovery
+Makefile              common build/test commands
+scripts/              golden-test runners
+src/main.cpp          CLI entry point
+src/vm/               ee::VM wrapper
+src/parser/           grammar and parser
+src/ast/              AST and debug printer
+src/tree_interpreter/ runtime values, state, and execution
+tests/language_tests/ CLI language fixtures
+tests/embedding_tests/ C++ embedding fixtures
+third_party/          vendored dependencies
+```
 
-### Source
+Main CMake targets:
 
-- `src/main.cpp`: CLI entry point, `--debug` handling, top-level error reporting, and `ee::VM` invocation
-- `src/vm/vm.h`, `src/vm/vm.cpp`: small `ee::VM` wrapper that loads source files, stores the parsed AST, exposes debug AST output, and calls named functions
-- `src/parser/language_grammar.h`: PEG grammar string
-- `src/parser/parser.h`: parser interface
-- `src/parser/parser.cpp`: parser construction and semantic actions that build the AST
-- `src/ast/ast.h`: AST node definitions
-- `src/ast/ast_printer.h`: AST printer interface
-- `src/ast/ast_printer.cpp`: source-like AST pretty printer used by `--debug`
-- `src/tree_interpreter/tree_interpreter.h`: interpreter entry point
-- `src/tree_interpreter/runtime_value.h`, `src/tree_interpreter/runtime_value.cpp`: runtime value model and operations
-- `src/tree_interpreter/runtime_state.h`, `src/tree_interpreter/runtime_state.cpp`: function table, call frames, and scopes
-- `src/tree_interpreter/tree_interpreter.cpp`: AST execution and expression evaluation
-- `src/common/overloaded.h`: helper for `std::visit`
+- `ee_runtime`: reusable runtime library
+- `interpreter`: CLI executable linked against `ee_runtime`
+- `embedding_tests`: builds all embedding test executables
 
-### Tests
+## Language Snapshot
 
-- `tests/pass`: programs expected to succeed
-- `tests/fail`: programs expected to fail
+Currently supported:
 
-For fixtures:
-
-- `.ee`: source file
-- `.out`: expected stdout for passing tests
-- `.err`: expected stderr for failing tests
-
-## Language
-
-Current language support:
-
-- multiple top-level functions
-- CLI execution calls a zero-argument `fn main()` entry point
-- function parameters and function calls
-- `print(...)` and `println(...)`
-- `let` declarations with required initializers
-- assignment to existing variables
-- `return;` and `return expr;`
-- integer, double, boolean, string, and `nothing` literals
-- array literals
-- identifier expressions
-- array indexing and indexed assignment
-- `push(array, value)` and `pop(array)`
-- unary `-`, `!`
-- arithmetic `+`, `-`, `*`, `/` on numeric values, with `%` on integers only
-- relational `<`, `<=`, `>`, `>=` on numeric values
-- equality `==`, `!=`
-- logical `&&`, `||`
-- parenthesized expressions
-- nested blocks
-- `if / else if / else`
-- `while`
-- `for let i = init; condition; i = update { ... }`
-- `break`
-- `continue`
+- functions, parameters, calls, `return`, and CLI `fn main()`
+- `let` declarations, assignment, blocks, and lexical scoping
+- integers, doubles, booleans, strings, arrays, and `nothing`
+- `print`, `println`, arithmetic, comparison, equality, and logical operators
+- `if`, `else if`, `else`, `while`, `for`, `break`, and `continue`
+- array indexing, indexed assignment, `push`, and `pop`
 - `//` line comments
 
-## Semantics
+Runtime notes:
 
-- runtime values are `int64_t`, `double`, `bool`, `string`, arrays, and `nothing`
-- arrays are mutable, reference-like values whose slots can hold any runtime value type
-- array literal elements are evaluated eagerly from left to right
-- `push` appends to an array and returns `nothing`
-- `pop` removes and returns the last array element
-- `false`, `nothing`, integer `0`, double `0.0`, empty strings, and empty arrays are falsy
-- nonzero integers, nonzero doubles, non-empty strings, non-empty arrays, and `true` are truthy
-- functions implicitly return `nothing` if no `return` executes
-- `main` is a CLI convention; source files loaded for embedding can define callable functions without `main`
-- function arguments are evaluated left-to-right in the caller before the function is looked up and called
-- each function call creates a fresh call frame
-- parameters and top-level function locals live in the same function scope
-- blocks use lexical scoping with shadowing
-- equality on mismatched runtime types is `false`
-- logical operators return booleans, not original operands
-- `print` does not add a newline
-- `println` prints a trailing newline
-- `print()` writes nothing
-- `println()` writes only a newline
-- printing an array value directly is not supported
-- `break` and `continue` outside loops are runtime errors
-- parse and runtime failures are reported as `std::runtime_error` messages on stderr
+- `false`, `nothing`, numeric zero, empty strings, and empty arrays are falsy
+- arrays are mutable reference-like values with heterogeneous slots
+- parse and runtime failures are reported as `std::runtime_error` messages

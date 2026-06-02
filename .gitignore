@@ -10,6 +10,7 @@
 
 # Ignoring any temporary test files
 *.tmp.out
+*.tmp.err
 
 # Ignoring Agent.md file
 AGENTS.md

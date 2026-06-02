@@ -17,14 +17,17 @@ if [ "$#" -ne 1 ]; then
 fi
 
 test_file="$1"
-test_name="$(basename "$test_file" .ee)"
-expected_output_file="${test_file%.ee}.out"
-expected_error_file="${test_file%.ee}.err"
+test_directory="$(dirname "$test_file")"
+test_kind="$(basename "$test_directory")"
+test_name="$(basename "$test_file" .cpp)"
+test_executable="$(pwd)/build/embedding_tests/$test_kind/$test_name"
+expected_output_file="${test_file%.cpp}.out"
+expected_error_file="${test_file%.cpp}.err"
 
 if [ -f "$expected_output_file" ]; then
-  temporary_result_file="${test_file%.ee}.tmp.out"
+  temporary_result_file="${test_file%.cpp}.tmp.out"
 
-  if ./build/interpreter "$test_file" > "$temporary_result_file"; then
+  if (cd "$test_directory" && "$test_executable") > "$temporary_result_file"; then
     if diff -u "$expected_output_file" "$temporary_result_file"; then
       echo "$test_name: PASSED"
       exit 0
@@ -35,16 +38,16 @@ if [ -f "$expected_output_file" ]; then
   fi
 
   echo "$test_name: FAILED"
-  echo "Expected passing test but interpreter exited with an error."
+  echo "Expected passing embedding test but executable exited with an error."
   exit 1
 fi
 
 if [ -f "$expected_error_file" ]; then
-  temporary_result_file="${test_file%.ee}.tmp.err"
+  temporary_result_file="${test_file%.cpp}.tmp.err"
 
-  if ./build/interpreter "$test_file" 2> "$temporary_result_file"; then
+  if (cd "$test_directory" && "$test_executable") 2> "$temporary_result_file"; then
     echo "$test_name: FAILED"
-    echo "Expected failing test but interpreter succeeded."
+    echo "Expected failing embedding test but executable succeeded."
     exit 1
   fi
 

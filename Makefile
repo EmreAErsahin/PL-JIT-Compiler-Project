@@ -1,9 +1,16 @@
-.PHONY: build clean
+.PHONY: cli runtime embedding test clean
 
-build:
+cli:
 	@cmake -S . -B build
-	@cmake --build build
+	@cmake --build build --target interpreter
+
+runtime:
+	@cmake -S . -B build
+	@cmake --build build --target ee_runtime
+
+test: cli
+	@cmake --build build --target embedding_tests
+	@./scripts/run_all_tests.sh
 
 clean:
 	@rm -rf build
-	@echo "Cleaned build directory"
